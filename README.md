@@ -1,5 +1,5 @@
 # Concise Concepts
-When wanting to apply NER to concise concepts, it is really easy to come up with examples, but pretty difficult to train an entire pipeline. Concise Concepts uses few-shot NER based on word embedding similarity to get you going with easy!
+When wanting to apply NER to concise concepts, it is really easy to come up with examples, but it takes some time to train an entire pipeline. Concise Concepts uses word similarity based on few-shots to get you going with easy!
 
 # Install
 ``` pip install classy-classification```
