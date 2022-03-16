@@ -12,7 +12,7 @@ import concise_concepts
 data = {
     "fruit": ["apple", "pear", "orange"],
     "vegetable": ["broccoli", "spinach", "tomato"],
-    "meat": ["chicken", "beef", "pork", "fish", "lamb"]
+    "meat": ["beef", "pork", "fish", "lamb"]
 }
 
 text = """
@@ -37,7 +37,7 @@ print([(ent.text, ent.label_) for ent in doc.ents])
 data = {
     "fruit": ["apple", "pear", "orange"],
     "vegetable": ["broccoli", "spinach", "tomato"],
-    "meat": ["chicken", "beef", "pork", "fish", "lamb"]
+    "meat": ["beef", "pork", "fish", "lamb"]
 }
 
 topn = [50, 50, 150]
