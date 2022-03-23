@@ -4,7 +4,7 @@ When wanting to apply NER to concise concepts, it is really easy to come up with
 # Install
 
 ```
-pip install classy-classification
+pip install concise-concepts
 ```
 
 # Quickstart
