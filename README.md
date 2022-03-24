@@ -11,6 +11,7 @@ pip install concise-concepts
 
 ```python
 import spacy
+from spacy import displacy
 import concise_concepts
 
 data = {
