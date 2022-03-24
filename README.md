@@ -25,13 +25,13 @@ nlp = spacy.load("en_core_web_lg")
 nlp.add_pipe("concise_concepts", config={"data": data})
 doc = nlp(text)
 
-print([(ent.text, ent.label_) for ent in doc.ents])
-# Output:
-#
-# [("Onion", "VEGETABLE"), ("Celery", "VEGETABLE"), ("carrots", "VEGETABLE"), 
-#  ("garlic", "VEGETABLE"), ("red peppers", "VEGETABLE"), ("oranges", "FRUIT"), 
-#  ("chickens", "MEAT")]
+
+options = {"colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
+           "ents": ["fruit", "vegetable", "meat"]}
+
+displacy.render(doc, style="ent", options=options)
 ```
+![example](./img/example.png)
 ## use specific number of words to expand over
 ```
 data = {
