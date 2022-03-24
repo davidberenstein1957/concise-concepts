@@ -2,10 +2,14 @@
 When wanting to apply NER to concise concepts, it is really easy to come up with examples, but pretty difficult to train an entire pipeline. Concise Concepts uses few-shot NER based on word embedding similarity to get you going with easy!
 
 # Install
-``` pip install classy-classification```
+
+```
+pip install concise-concepts
+```
 
 # Quickstart
-```
+
+```python
 import spacy
 import concise_concepts
 
@@ -33,7 +37,8 @@ displacy.render(doc, style="ent", options=options)
 ```
 ![example](./img/example.png)
 ## use specific number of words to expand over
-```
+
+```python
 data = {
     "fruit": ["apple", "pear", "orange"],
     "vegetable": ["broccoli", "spinach", "tomato"],
