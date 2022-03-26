@@ -2,17 +2,20 @@
 
 import itertools
 
+import gensim.downloader
+from gensim.models import Word2Vec
 from gensim.models.keyedvectors import KeyedVectors
 from spacy import util
 from spacy.tokens import Doc
 
 
 class ConceptualSpacy:
-    def __init__(self, nlp, name, data, topn=[]):
+    def __init__(self, nlp, name, data, topn=[], model_path=None):
         self.data = data
         self.name = name
         self.nlp = nlp
         self.topn = topn
+        self.model_path = model_path
         self.run()
 
     def run(self):
@@ -40,22 +43,32 @@ class ConceptualSpacy:
                     f'Provide a topn integer for each of the {num_classes} classes.')
 
     def set_gensim_model(self):
-        wordList = []
-        vectorList = []
+        if self.model_path:
+            available_models = list(gensim.downloader.info()['models'].keys())
+            if self.model_path in available_models:
+                self.kv = gensim.downloader.load(self.model_path)
+            else:
+                try:
+                    self.kv = Word2Vec.load(self.model_path).kv
+                except:
+                    self.kv = KeyedVectors.load(self.model_path)
+        else:
+            wordList = []
+            vectorList = []
 
-        try:
-            assert len(self.nlp.vocab.vectors)
-        except Exception as _:
-            raise Exception(
-                'Choose a model with internal embeddings i.e. md or lg.')
+            try:
+                assert len(self.nlp.vocab.vectors)
+            except Exception as _:
+                raise Exception(
+                    'Choose a model with internal embeddings i.e. md or lg.')
 
-        for key, vector in self.nlp.vocab.vectors.items():
-            wordList.append(self.nlp.vocab.strings[key])
-            vectorList.append(vector)
+            for key, vector in self.nlp.vocab.vectors.items():
+                wordList.append(self.nlp.vocab.strings[key])
+                vectorList.append(vector)
 
-        self.kv = KeyedVectors(self.nlp.vocab.vectors_length)
+            self.kv = KeyedVectors(self.nlp.vocab.vectors_length)
 
-        self.kv.add_vectors(wordList, vectorList)
+            self.kv.add_vectors(wordList, vectorList)
 
     def expand_concepts(self):
         for key in self.data:

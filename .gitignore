@@ -128,3 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 /test_spacy.py
+.model
+/concise_concepts/word2vec.model.vectors.npy

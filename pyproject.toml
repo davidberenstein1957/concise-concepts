@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "concise-concepts"
-version = "0.2.3"
+version = "0.3.0"
 description = "This repository contains an easy and intuitive approach to few-shot NER using most similar expansion over spaCy embeddings."
 authors = ["David Berenstein <david.m.berenstein@gmail.com>"]
 license = "MIT"

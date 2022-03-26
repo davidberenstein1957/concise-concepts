@@ -53,4 +53,19 @@ assert len(topn) == len
 nlp.add_pipe("concise_concepts", config={"data": data, "topn": topn})
 ````
 
+## use gensim.word2vec model from pre-trained gensim or custom model path
+
+```python
+data = {
+    "fruit": ["apple", "pear", "orange"],
+    "vegetable": ["broccoli", "spinach", "tomato"],
+    "meat": ["beef", "pork", "fish", "lamb"]
+}
+
+# model from https://radimrehurek.com/gensim/downloader.html or path to local file
+model_path = "glove-twitter-25"
+
+nlp.add_pipe("concise_concepts", config={"data": data, "model_path": model_path})
+````
+
 
