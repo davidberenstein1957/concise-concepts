@@ -130,3 +130,4 @@ dmypy.json
 /test_spacy.py
 .model
 /concise_concepts/word2vec.model.vectors.npy
+/test.html
