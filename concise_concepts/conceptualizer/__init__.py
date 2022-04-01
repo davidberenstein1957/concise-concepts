@@ -1,4 +1,5 @@
 import itertools
+from copy import deepcopy
 
 import gensim.downloader
 from gensim.models import FastText, Word2Vec
@@ -13,7 +14,7 @@ class ConceptualSpacy:
             Span.set_extension("ent_score", default=None)
         self.ent_score = ent_score
         self.orignal_words = [j for i in data.values() for j in i]
-        self.original_data = data
+        self.original_data = deepcopy(data)
         self.data = data
         self.name = name
         self.nlp = nlp
@@ -28,9 +29,11 @@ class ConceptualSpacy:
         self.expand_concepts()
         # settle words around overlapping concepts
         for _ in range(5):
-            self.resolve_overlapping_concepts()
             self.expand_concepts()
             self.infer_original_data()
+            self.resolve_overlapping_concepts()
+        self.infer_original_data()
+        print(self.data)
         self.create_conceptual_patterns()
 
         if not self.ent_score:
@@ -40,7 +43,7 @@ class ConceptualSpacy:
         self.topn_dict = {}
         if not self.topn:
             for key in self.data:
-                self.topn_dict[key] = 150
+                self.topn_dict[key] = 100
         else:
             try:
                 num_classes = len(list(self.data.keys()))
@@ -121,9 +124,15 @@ class ConceptualSpacy:
         self.centroids = centroids
 
     def infer_original_data(self):
+        data = deepcopy(self.original_data)
         for key in self.data:
-            self.data[key] += self.original_data[key]
+            self.data[key] += data[key]
             self.data[key] = list(set(self.data[key]))
+
+        for key_x in self.data:
+            for key_y in self.data:
+                if key_x != key_y:
+                    self.data[key_x] = [word for word in self.data[key_x] if word not in self.original_data[key_y]]
 
     def lemmatize_concepts(self):
         for key in self.data:
