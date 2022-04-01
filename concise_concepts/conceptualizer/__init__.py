@@ -12,6 +12,8 @@ class ConceptualSpacy:
         if ent_score:
             Span.set_extension("ent_score", default=None)
         self.ent_score = ent_score
+        self.orignal_words = [j for i in data.values() for j in i]
+        self.original_data = data
         self.data = data
         self.name = name
         self.nlp = nlp
@@ -24,8 +26,11 @@ class ConceptualSpacy:
         self.determine_topn()
         self.set_gensim_model()
         self.expand_concepts()
-        self.resolve_overlapping_concepts()
-        self.lemmatize_concepts()
+        # settle words around overlapping concepts
+        for _ in range(5):
+            self.resolve_overlapping_concepts()
+            self.expand_concepts()
+            self.infer_original_data()
         self.create_conceptual_patterns()
 
         if not self.ent_score:
@@ -101,13 +106,24 @@ class ConceptualSpacy:
             else:
                 centroids[key] = key
 
+        for key_x in self.data:
+            for key_y in self.data:
+                if key_x != key_y:
+                    self.data[key_x] = [word for word in self.data[key_x] if word not in self.original_data[key_y]]
+
         for key in self.data:
             self.data[key] = [
                 word
                 for word in self.data[key]
                 if centroids[key] == self.kv.most_similar_to_given(word, list(centroids.values()))
             ]
+
         self.centroids = centroids
+
+    def infer_original_data(self):
+        for key in self.data:
+            self.data[key] += self.original_data[key]
+            self.data[key] = list(set(self.data[key]))
 
     def lemmatize_concepts(self):
         for key in self.data:
