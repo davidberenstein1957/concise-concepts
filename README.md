@@ -33,11 +33,19 @@ text = """
 
 nlp = spacy.load("en_core_web_lg")
 # ent_score for entity condifence scoring
-nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": False})
+nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True})
 doc = nlp(text)
 
 options = {"colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
            "ents": ["fruit", "vegetable", "meat"]}
+
+ents = doc.ents
+for ent in ents:
+    new_label = f"{ent.label_} ({float(ent._.ent_score):.0%})"
+    options["colors"][new_label] = options["colors"].get(ent.label_.lower(), None)
+    options["ents"].append(new_label)
+    ent.label_ = new_label
+doc.ents = ents
 
 displacy.render(doc, style="ent", options=options)
 ```
