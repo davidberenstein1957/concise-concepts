@@ -33,7 +33,6 @@ class ConceptualSpacy:
             self.infer_original_data()
             self.resolve_overlapping_concepts()
         self.infer_original_data()
-        print(self.data)
         self.create_conceptual_patterns()
 
         if not self.ent_score:
