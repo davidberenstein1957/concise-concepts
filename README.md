@@ -31,7 +31,7 @@ text = """
     Add the courgette, garlic, red peppers and oregano and cook for 2–3 minutes.
     Later, add some oranges and chickens. """
 
-nlp = spacy.load("en_core_web_lg")
+nlp = spacy.load("en_core_web_lg", disable=["ner"])
 # ent_score for entity condifence scoring
 nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True})
 doc = nlp(text)
