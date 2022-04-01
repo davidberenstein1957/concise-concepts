@@ -156,5 +156,7 @@ class ConceptualSpacy:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
                     ent._.ent_score = 1
+            else:
+                ent._.ent_score = 1
         doc.ents = ents
         return doc
