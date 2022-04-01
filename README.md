@@ -35,7 +35,6 @@ nlp = spacy.load("en_core_web_lg")
 nlp.add_pipe("concise_concepts", config={"data": data})
 doc = nlp(text)
 
-
 options = {"colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
            "ents": ["fruit", "vegetable", "meat"]}
 
@@ -57,6 +56,29 @@ topn = [50, 50, 150]
 assert len(topn) == len
 
 nlp.add_pipe("concise_concepts", config={"data": data, "topn": topn})
+````
+
+## use word similarity to score entities
+
+```python
+import spacy
+import concise_concepts
+
+data = {
+    "ORG": ["Google", "Apple", "Amazon"],
+    "GPE": ["Netherlands", "France", "China"],
+}
+
+text = """Sony was founded in Japan."""
+
+nlp = spacy.load("en_core_web_lg")
+nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True})
+doc = nlp(text)
+
+print([(ent.text, ent.label_, ent._.ent_score) for ent in doc.ents])
+# output
+#
+# [('Sony', 'ORG', 0.63740385), ('Japan', 'GPE', 0.5896993)]
 ````
 
 ## use gensim.word2vec model from pre-trained gensim or custom model path
