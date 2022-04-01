@@ -32,7 +32,8 @@ text = """
     Later, add some oranges and chickens. """
 
 nlp = spacy.load("en_core_web_lg")
-nlp.add_pipe("concise_concepts", config={"data": data})
+# ent_score for entity condifence scoring
+nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": False})
 doc = nlp(text)
 
 options = {"colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
