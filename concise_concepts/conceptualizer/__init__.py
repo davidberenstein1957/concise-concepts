@@ -144,10 +144,26 @@ class ConceptualSpacy:
         for key in self.data:
             for word in self.data[key]:
                 if word != key:
+                    individual_pattern = {
+                        "lemma": {"regex": r"(?i)" + word},
+                        "POS": {"NOT_IN": ["VERB"]},
+                        "DEP": {"NOT_IN": ["nsubjpass"]},
+                    }
+
+                    patterns.append(
+                        {
+                            "label": key.upper(),
+                            "pattern": [
+                                individual_pattern,
+                            ],
+                            "id": f"{key}_individual",
+                        }
+                    )
+
                     default_pattern = {
                         "lemma": {"regex": r"(?i)" + word},
                         "POS": {"NOT_IN": ["VERB"]},
-                        "DEP": {"NOT_IN": ["compound", "nsubjpass"]},
+                        "DEP": {"NOT_IN": ["nsubjpass", "compound"]},
                     }
 
                     patterns.append(
@@ -158,7 +174,7 @@ class ConceptualSpacy:
                                 default_pattern,
                                 {"DEP": {"IN": ["amod", "compound"]}, "OP": "?"},
                             ],
-                            "id": key,
+                            "id": f"{key}_compound",
                         }
                     )
         self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
