@@ -10,6 +10,8 @@ from spacy.tokens import Doc, Span
 
 class ConceptualSpacy:
     def __init__(self, nlp: Language, name: str, data: dict, topn: list = [], model_path=None, ent_score=False):
+        if Span.has_extension("ent_score"):
+            Span.remove_extension("ent_score")
         if ent_score:
             Span.set_extension("ent_score", default=None)
         self.ent_score = ent_score
