@@ -28,13 +28,11 @@ class ConceptualSpacy:
     def run(self):
         self.determine_topn()
         self.set_gensim_model()
-        self.expand_concepts()
         # settle words around overlapping concepts
         for _ in range(5):
             self.expand_concepts()
-            self.infer_original_data()
             self.resolve_overlapping_concepts()
-        self.infer_original_data()
+            self.infer_original_data()
         self.create_conceptual_patterns()
 
         if not self.ent_score:
@@ -102,13 +100,10 @@ class ConceptualSpacy:
     def resolve_overlapping_concepts(self):
         centroids = {}
         for key in self.data:
-            if key not in self.kv:
-                words = self.data[key]
-                while len(words) != 1:
-                    words.remove(self.kv.doesnt_match(words))
-                centroids[key] = words[0]
-            else:
-                centroids[key] = key
+            words = deepcopy(self.data[key])
+            while len(words) != 1:
+                words.remove(self.kv.doesnt_match(words))
+            centroids[key] = words[0]
 
         for key_x in self.data:
             for key_y in self.data:
@@ -118,7 +113,7 @@ class ConceptualSpacy:
         for key in self.data:
             self.data[key] = [
                 word
-                for word in self.data[key]
+                for word in deepcopy(self.data[key])
                 if centroids[key] == self.kv.most_similar_to_given(word, list(centroids.values()))
             ]
 
