@@ -9,7 +9,7 @@ from spacy.tokens import Doc, Span
 
 
 class ConceptualSpacy:
-    def __init__(self, nlp: Language, name: str, data: dict, topn: list = [], model_path=None, ent_score=False):
+    def __init__(self, nlp: Language, name: str, data: dict, topn: list = None, model_path=None, ent_score=False):
         if Span.has_extension("ent_score"):
             Span.remove_extension("ent_score")
         if ent_score:
@@ -46,13 +46,10 @@ class ConceptualSpacy:
             for key in self.data:
                 self.topn_dict[key] = 100
         else:
-            try:
-                num_classes = len(list(self.data.keys()))
-                assert len(self.topn) == num_classes
-                for key, n in zip(self.data, self.topn):
-                    self.topn_dict[key] = n
-            except Exception as _:
-                raise Exception(f"Provide a topn integer for each of the {num_classes} classes.")
+            num_classes = len(list(self.data.keys()))
+            assert len(self.topn) == num_classes, f"Provide a topn integer for each of the {num_classes} classes."
+            for key, n in zip(self.data, self.topn):
+                self.topn_dict[key] = n
 
     def set_gensim_model(self):
         if self.model_path:
@@ -73,10 +70,7 @@ class ConceptualSpacy:
             wordList = []
             vectorList = []
 
-            try:
-                assert len(self.nlp.vocab.vectors)
-            except Exception as _:
-                raise Exception("Choose a model with internal embeddings i.e. md or lg.")
+            assert len(self.nlp.vocab.vectors), "Choose a model with internal embeddings i.e. md or lg."
 
             for key, vector in self.nlp.vocab.vectors.items():
                 wordList.append(self.nlp.vocab.strings[key])

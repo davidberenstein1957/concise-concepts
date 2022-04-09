@@ -1,13 +1,12 @@
-import concise_concepts
-import gensim
-import gensim.downloader as api
 import spacy
+
+import concise_concepts  # noqa: F401
 
 from .data import data, text
 
 model_path = "glove-twitter-25"
 
-nlp = spacy.blank('en')
+nlp = spacy.blank("en")
 
 nlp.add_pipe("concise_concepts", config={"data": data, "model_path": model_path})
 

@@ -104,5 +104,3 @@ model_path = "glove-twitter-25"
 
 nlp.add_pipe("concise_concepts", config={"data": data, "model_path": model_path})
 ````
-
-
