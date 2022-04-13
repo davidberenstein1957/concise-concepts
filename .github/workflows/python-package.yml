@@ -29,7 +29,6 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest pytest-cov
         python -m pip install poetry 
-        poetry shell
         poetry export -f requirements.txt -o requirements.txt --without-hashes
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         python -m spacy download en_core_web_sm
