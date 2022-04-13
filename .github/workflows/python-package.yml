@@ -32,7 +32,7 @@ jobs:
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --max-complexity=18 --enable=W0614 --per-file-ignores=test_*.py: D --select=C,E,F,W,B,B950 --ignore=E203,E266,E501,W503 --exclude=.git,__pycache__,build,dist --max-line-length=119 --show-source --statistics 
+        flake8 . --count --max-complexity=18 --enable=W0614 --per-file-ignores=test_*.py --select=C,E,F,W,B,B950 --ignore=E203,E266,E501,W503 --exclude=.git,__pycache__,build,dist --max-line-length=119 --show-source --statistics 
     - name: Test with pytest
       run: |
         pytest --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
