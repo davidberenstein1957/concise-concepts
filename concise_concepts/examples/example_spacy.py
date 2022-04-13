@@ -4,7 +4,7 @@ import concise_concepts  # noqa: F401
 
 from .data import data, text
 
-nlp = spacy.load("en_core_web_lg")
+nlp = spacy.load("en_core_web_sm")
 
 nlp.add_pipe("concise_concepts", config={"data": data})
 
