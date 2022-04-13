@@ -1,6 +1,5 @@
 from typing import Union
 
-from gensim.models.keyedvectors import KeyedVectors
 from spacy.language import Language
 
 from .conceptualizer import ConceptualSpacy
