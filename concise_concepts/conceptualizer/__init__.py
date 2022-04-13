@@ -59,12 +59,16 @@ class ConceptualSpacy:
             else:
                 try:
                     self.kv = FastText.load(self.model_path)
+                except Exception as e1:
                     try:
                         self.kv = Word2Vec.load(self.model_path)
-                    except Exception:
-                        self.kv = KeyedVectors.load(self.model_path)
-                except Exception:
-                    raise Exception("Not a valid gensim model. FastText, Word2Vec, KeyedVectors.")
+                    except Exception as e2:
+                        try:
+                            self.kv = KeyedVectors.load(self.model_path)
+                        except Exception as e3:
+                            raise Exception(
+                                f"Not a valid gensim model. FastText, Word2Vec, KeyedVectors.\n {e1}\n {e2}\n {e3}"
+                            )
 
         else:
             wordList = []
