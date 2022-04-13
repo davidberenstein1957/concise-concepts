@@ -28,6 +28,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest pytest-cov
+        python -m pip install poetry 
+        poetry shell
+        poetry export -f requirements.txt -o requirements.txt
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
