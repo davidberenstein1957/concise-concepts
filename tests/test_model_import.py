@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 def test_spacy_embeddings():
     from concise_concepts.examples import example_spacy  # noqa: F401
 

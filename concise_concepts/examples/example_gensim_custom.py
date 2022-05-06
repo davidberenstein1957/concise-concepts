@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import gensim.downloader as api
 import spacy
 

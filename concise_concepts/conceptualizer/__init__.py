@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import itertools
+import logging
 from copy import deepcopy
 
 import gensim.downloader
@@ -6,6 +8,8 @@ from gensim.models import FastText, Word2Vec
 from gensim.models.keyedvectors import KeyedVectors
 from spacy import Language, util
 from spacy.tokens import Doc, Span
+
+logger = logging.getLogger(__name__)
 
 
 class ConceptualSpacy:
@@ -28,6 +32,7 @@ class ConceptualSpacy:
     def run(self):
         self.determine_topn()
         self.set_gensim_model()
+        self.verify_data()
         self.expand_concepts()
         # settle words around overlapping concepts
         for _ in range(5):
@@ -41,6 +46,10 @@ class ConceptualSpacy:
             del self.kv
 
     def determine_topn(self):
+        """
+        If the user doesn't specify a topn value for each class,
+        then the topn value for each class is set to 100
+        """
         self.topn_dict = {}
         if not self.topn:
             for key in self.data:
@@ -52,6 +61,11 @@ class ConceptualSpacy:
                 self.topn_dict[key] = n
 
     def set_gensim_model(self):
+        """
+        If the model_path is not None, then we try to load the model from the path.
+        If it's not a valid path, then we raise an exception.
+        If the model_path is None, then we load the model from the internal embeddings of the spacy model
+        """
         if self.model_path:
             available_models = gensim.downloader.info()["models"]
             if self.model_path in available_models:
@@ -69,7 +83,6 @@ class ConceptualSpacy:
                             raise Exception(
                                 f"Not a valid gensim model. FastText, Word2Vec, KeyedVectors.\n {e1}\n {e2}\n {e3}"
                             )
-
         else:
             wordList = []
             vectorList = []
@@ -84,7 +97,27 @@ class ConceptualSpacy:
 
             self.kv.add_vectors(wordList, vectorList)
 
+    def verify_data(self):
+        """
+        It takes a dictionary of lists of words, and returns a dictionary of lists of words,
+        where each word in the list is present in the word2vec model
+        """
+        verified_data = {}
+        for key, value in self.data.items():
+            verified_values = []
+            for word in value:
+                if word.replace(" ", "_") in self.kv:
+                    verified_values.append(word)
+                else:
+                    logger.warning(f"word {word} from key {key} not present in word2vec model")
+            verified_data[key] = verified_values
+        self.data = verified_data
+
     def expand_concepts(self):
+        """
+        For each key in the data dictionary, find the topn most similar words to the key and the values in the data
+        dictionary, and add those words to the values in the data dictionary
+        """
         for key in self.data:
             remaining_keys = [rem_key for rem_key in self.data.keys() if rem_key != key]
             remaining_values = [self.data[rem_key] for rem_key in remaining_keys]
@@ -98,6 +131,10 @@ class ConceptualSpacy:
             self.data[key] = list(set([word.lower() for word in self.data[key]]))
 
     def resolve_overlapping_concepts(self):
+        """
+        It removes words from the data that are in other concepts, and then removes words that are not closest to the
+        centroid of the concept
+        """
         centroids = {}
         for key in self.data:
             if key not in self.kv:
@@ -123,6 +160,9 @@ class ConceptualSpacy:
         self.centroids = centroids
 
     def infer_original_data(self):
+        """
+        It takes the original data and adds the new data to it, then removes the new data from the original data.
+        """
         data = deepcopy(self.original_data)
         for key in self.data:
             self.data[key] += data[key]
@@ -134,10 +174,40 @@ class ConceptualSpacy:
                     self.data[key_x] = [word for word in self.data[key_x] if word not in self.original_data[key_y]]
 
     def lemmatize_concepts(self):
+        """
+        For each key in the data dictionary,
+        the function takes the list of concepts associated with that key, and lemmatizes
+        each concept.
+        """
         for key in self.data:
             self.data[key] = list(set([doc[0].lemma_ for doc in self.nlp.pipe(self.data[key])]))
 
     def create_conceptual_patterns(self):
+        """
+        For each key in the data dictionary,
+        create a pattern for each word in the list of words associated with that key.
+
+
+        The pattern is a dictionary with three keys:
+
+        1. "lemma"
+        2. "POS"
+        3. "DEP"
+
+        The value for each key is another dictionary with one key and one value.
+
+        The key is either "regex" or "NOT_IN" or "IN".
+
+        The value is either a regular expression or a list of strings.
+
+        The regular expression is the word associated with the key in the data dictionary.
+
+        The list of strings is either ["VERB"] or ["nsubjpass"] or ["amod", "compound"].
+
+        The regular expression is case insensitive.
+
+        The pattern is
+        """
         patterns = []
         for key in self.data:
             for word in self.data[key]:
@@ -179,11 +249,24 @@ class ConceptualSpacy:
         self.ruler.add_patterns(patterns)
 
     def __call__(self, doc: Doc):
+        """
+        It takes a doc object and assigns a score to each entity in the doc object
+
+        :param doc: Doc
+        :type doc: Doc
+        """
         if self.ent_score:
             doc = self.assign_score_to_entities(doc)
         return doc
 
     def pipe(self, stream, batch_size=128):
+        """
+        It takes a stream of documents, and for each document,
+        it assigns a score to each entity in the document
+
+        :param stream: a generator of documents
+        :param batch_size: The number of documents to be processed at a time, defaults to 128 (optional)
+        """
         for docs in util.minibatch(stream, size=batch_size):
             for doc in docs:
                 if self.ent_score:
@@ -191,6 +274,16 @@ class ConceptualSpacy:
                 yield doc
 
     def assign_score_to_entities(self, doc: Doc):
+        """
+        The function takes a spaCy document as input and assigns a score to each entity in the document. The score is
+        calculated using the word embeddings of the entity and the concept.
+        The score is assigned to the entity using the
+        `._.ent_score` attribute
+
+        :param doc: Doc
+        :type doc: Doc
+        :return: The doc object with the entities and their scores.
+        """
         ents = doc.ents
         for ent in ents:
             if ent.label_ in self.data_upper:
