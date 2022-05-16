@@ -112,6 +112,7 @@ class ConceptualSpacy:
                     logger.warning(f"word {word} from key {key} not present in word2vec model")
             verified_data[key] = verified_values
         self.data = verified_data
+        self.original_data = deepcopy(self.data)
 
     def expand_concepts(self):
         """
