@@ -17,7 +17,8 @@ pip install concise-concepts
 # Tutorials
 
 [TechVizTheDataScienceGuy](https://www.youtube.com/c/TechVizTheDataScienceGuy) created a [nice tutorial](https://prakhar-mishra.medium.com/few-shot-named-entity-recognition-in-natural-language-processing-92d31f0d1143) on how to use it.
-I(https://www.linkedin.com/in/david-berenstein-1bab11105/) created a [tutorial](https://www.rubrix.ml/blog/concise-concepts-rubrix/) in collaboration with Rubrix.
+
+[I](https://www.linkedin.com/in/david-berenstein-1bab11105/) created a [tutorial](https://www.rubrix.ml/blog/concise-concepts-rubrix/) in collaboration with Rubrix.
 
 # Quickstart
 
