@@ -34,7 +34,7 @@ class Conceptualizer:
         self.set_gensim_model()
         self.verify_data()
         self.expand_concepts()
-        self.verify_data()
+        self.verify_data(verbose=False)
         # settle words around overlapping concepts
         for _ in range(5):
             self.expand_concepts()
@@ -106,7 +106,7 @@ class Conceptualizer:
         verified_data = {}
         for key, value in self.data.items():
             verified_values = []
-            if key.replace(" ", "_") in self.kv:
+            if key.replace(" ", "_") not in self.kv:
                 if verbose:
                     logger.warning(f"key {key} not present in word2vec model")
             for word in value:
