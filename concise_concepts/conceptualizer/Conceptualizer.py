@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import itertools
 import logging
+import re
 from copy import deepcopy
 
 import gensim.downloader
@@ -11,9 +12,24 @@ from spacy.tokens import Doc, Span
 
 logger = logging.getLogger(__name__)
 
+default_pattern = {
+    "POS": {"NOT_IN": ["VERB"]},
+    "DEP": {"NOT_IN": ["nsubjpass"]},
+}
+case_sensitive = True
+word_delimiter = "_"
+
 
 class Conceptualizer:
-    def __init__(self, nlp: Language, name: str, data: dict, topn: list = None, model_path=None, ent_score=False):
+    def __init__(
+        self,
+        nlp: Language,
+        name: str,
+        data: dict,
+        topn: list = None,
+        model_path=None,
+        ent_score=False,
+    ):
         if Span.has_extension("ent_score"):
             Span.remove_extension("ent_score")
         if ent_score:
@@ -226,27 +242,25 @@ class Conceptualizer:
         for key in self.data:
             for word in self.data[key]:
                 if word != key and word.isalnum():
-                    individual_pattern = {
-                        "lemma": {"regex": r"(?i)" + word},
-                        "POS": {"NOT_IN": ["VERB"]},
-                        "DEP": {"NOT_IN": ["nsubjpass"]},
-                    }
+                    word_parts = re.split(f"[{word_delimiter}]+", word)
+
+                    if case_sensitive:
+                        default_pattern["lemma"] = [{"regex": part} for part in word_parts]
+                    else:
+                        default_pattern["lemma"] = [{"regex": r"(?i)" + part} for part in word_parts]
 
                     patterns.append(
                         {
                             "label": key.upper(),
                             "pattern": [
-                                individual_pattern,
+                                default_pattern,
                             ],
                             "id": f"{key}_individual",
                         }
                     )
 
-                    default_pattern = {
-                        "lemma": {"regex": r"(?i)" + word},
-                        "POS": {"NOT_IN": ["VERB"]},
-                        "DEP": {"NOT_IN": ["nsubjpass", "compound"]},
-                    }
+                    if len(word_parts) > 1:
+                        pass
 
                     patterns.append(
                         {
