@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Union
+from typing import List, Union
 
 from spacy.language import Language
 
@@ -8,9 +8,41 @@ from .conceptualizer import Conceptualizer
 
 @Language.factory(
     "concise_concepts",
-    default_config={"data": None, "topn": [], "model_path": None, "ent_score": False},
+    default_config={
+        "data": None,
+        "topn": [],
+        "model_path": None,
+        "word_delimiter": "_",
+        "ent_score": False,
+        "exclude_pos": [],
+        "exclude_dep": [],
+        "include_compound_words": False,
+        "case_sensitive": False,
+    },
 )
 def make_concise_concepts(
-    nlp: Language, name: str, data: Union[dict, list], topn: list, model_path: Union[str, None], ent_score: bool
+    nlp: Language,
+    name: str,
+    data: Union[dict, list],
+    topn: list,
+    model_path: Union[str, None],
+    word_delimiter: str,
+    ent_score: bool,
+    exclude_pos: List[str],
+    exclude_dep: List[str],
+    include_compound_words: bool,
+    case_sensitive: bool,
 ):
-    return Conceptualizer(nlp=nlp, name=name, data=data, topn=topn, model_path=model_path, ent_score=ent_score)
+    return Conceptualizer(
+        nlp=nlp,
+        name=name,
+        data=data,
+        topn=topn,
+        model_path=model_path,
+        word_delimiter=word_delimiter,
+        ent_score=ent_score,
+        exclude_pos=exclude_pos,
+        exclude_dep=exclude_dep,
+        include_compound_words=include_compound_words,
+        case_sensitive=case_sensitive,
+    )
