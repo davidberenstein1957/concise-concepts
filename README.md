@@ -59,8 +59,11 @@ displacy.render(doc, style="ent", options=options)
 ```
 ![](https://raw.githubusercontent.com/Pandora-Intelligence/concise-concepts/master/img/example.png)
 
-## customize matching rules
- - ´´
+## customize matching rules via config variables
+ - ´exclude_pos´: A list of POS tags to be excluded from the rule based match.
+ - ´exclude_dep´: A list of dependencies to be excluded from the rule based match.
+ - ´include_compound_words´:  If True, it will include compound words in the entity. For example, if the entity is "New York", it will also include "New York City" as an entity.
+ - ´case_sensitive´: Whether to match the case of the words in the text.
 
 ## use specific number of words to expand over
 
