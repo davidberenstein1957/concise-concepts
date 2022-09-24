@@ -73,6 +73,14 @@ class Conceptualizer:
         self.include_compound_words = include_compound_words
         self.case_sensitive = case_sensitive
         self.word_delimiter = word_delimiter
+        if "lemmatizer" not in self.nlp.component_names:
+            logger.warning(
+                "No lemmatizer found in spacy pipeline. Consider adding it for matching"
+                " on LEMMA instead of exact text."
+            )
+            self.match_key = "ORTH"
+        else:
+            self.match_key = "LEMMA"
         self.run()
         self.data_upper = {k.upper(): v for k, v in data.items()}
 
@@ -122,10 +130,10 @@ class Conceptualizer:
                 self.kv = gensim.downloader.load(self.model_path)
             else:
                 try:
-                    self.kv = FastText.load(self.model_path)
+                    self.kv = FastText.load(self.model_path).wv
                 except Exception as e1:
                     try:
-                        self.kv = Word2Vec.load(self.model_path)
+                        self.kv = Word2Vec.load(self.model_path).wv
                     except Exception as e2:
                         try:
                             self.kv = KeyedVectors.load(self.model_path)
@@ -158,12 +166,12 @@ class Conceptualizer:
         verified_data = {}
         for key, value in self.data.items():
             verified_values = []
-            if key.replace(" ", "_") not in self.kv:
+            if not self.check_presence_vocab(key):
                 if verbose:
                     logger.warning(f"key {key} not present in word2vec model")
             for word in value:
-                if word.replace(" ", "_") in self.kv:
-                    verified_values.append(word)
+                if self.check_presence_vocab(word):
+                    verified_values.append(self.check_presence_vocab(word))
                 else:
                     if verbose:
                         logger.warning(
@@ -186,8 +194,8 @@ class Conceptualizer:
             remaining_keys = [rem_key for rem_key in self.data.keys() if rem_key != key]
             remaining_values = [self.data[rem_key] for rem_key in remaining_keys]
             remaining_values = list(itertools.chain.from_iterable(remaining_values))
-            if key in self.kv:
-                key_list = [key]
+            if self.check_presence_vocab(key):
+                key_list = [self.check_presence_vocab(key)]
             else:
                 key_list = []
             similar = self.kv.most_similar(
@@ -205,7 +213,7 @@ class Conceptualizer:
         """
         centroids = {}
         for key in self.data:
-            if key not in self.kv:
+            if not self.check_presence_vocab(key):
                 words = self.data[key]
                 while len(words) != 1:
                     words.remove(self.kv.doesnt_match(words))
@@ -293,12 +301,20 @@ class Conceptualizer:
 
         def add_patterns(input_dict):
             for key in input_dict:
-                lemma_words = [
-                    "".join([token.lemma_ for token in doc])
-                    for doc in self.nlp.pipe(input_dict[key])
-                ]
-                for word in lemma_words:
-                    if word != key and word.isalnum():
+                if self.match_key == "LEMMA":
+                    words = [
+                        "".join(
+                            [
+                                token.lemma_ if token.lemma_ else token.text
+                                for token in doc
+                            ]
+                        )
+                        for doc in self.nlp.pipe(input_dict[key])
+                    ]
+                else:
+                    words = input_dict[key]
+                for word in words:
+                    if word != key:
                         specific_copy = deepcopy(self.match_rule)
                         word_parts = re.split(f"[{self.word_delimiter}]+", word)
                         if len(word_parts) > 1:
@@ -308,9 +324,9 @@ class Conceptualizer:
 
                         for op in operators:
                             if self.case_sensitive:
-                                specific_copy["LEMMA"] = "{op}".join(word_parts)
+                                specific_copy[self.match_key] = "{op}".join(word_parts)
                             else:
-                                specific_copy["LEMMA"] = {
+                                specific_copy[self.match_key] = {
                                     "regex": r"(?i)" + "{op}".join(word_parts)
                                 }
 
@@ -343,11 +359,10 @@ class Conceptualizer:
 
         add_patterns(self.data)
         add_patterns(self.original_data)
-
-        self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
-        self.ruler.add_patterns(patterns)
         with open("matching_patterns.json", "w") as f:
             json.dump(patterns, f)
+        self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
+        self.ruler.add_patterns(patterns)
 
     def __call__(self, doc: Doc):
         """
@@ -388,15 +403,32 @@ class Conceptualizer:
         ents = doc.ents
         for ent in ents:
             if ent.label_ in self.data_upper:
-                entity = [part for part in ent.text.split() if part in self.kv]
+                entity = [
+                    self.check_presence_vocab(part)
+                    for part in ent.text.split()
+                    if self.check_presence_vocab(part)
+                ]
                 concept = [
-                    word for word in self.data_upper[ent.label_] if word in self.kv
+                    self.check_presence_vocab(word)
+                    for word in self.data_upper[ent.label_]
+                    if word in self.check_presence_vocab(word)
                 ]
                 if entity and concept:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
                     ent._.ent_score = 0
+                    logger.warning(
+                        f"Entity {entity} not found in model. Setting score to 0."
+                    )
             else:
                 ent._.ent_score = 0
+                logger.warning(
+                    f"Entity {entity} not found in model. Setting score to 0."
+                )
         doc.ents = ents
         return doc
+
+    def check_presence_vocab(self, word):
+        for op in [" ", "-"]:
+            if word.replace(op, self.word_delimiter) in self.kv:
+                return word.replace(op, self.word_delimiter)
