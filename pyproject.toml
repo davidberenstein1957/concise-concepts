@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "concise-concepts"
-version = "0.5.4"
+version = "0.6"
 description = "This repository contains an easy and intuitive approach to few-shot NER using most similar expansion over spaCy embeddings. Now with entity confidence scores!"
 authors = ["David Berenstein <david.m.berenstein@gmail.com>"]
 license = "MIT"
@@ -14,27 +14,29 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development"
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = ">=3.8,<3.12"
 spacy = "^3"
+scipy = "^1.7"
 gensim = "^4"
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.0.1"
-flake8 = "^4.0.1"
-black = "^22.3.0"
-flake8-bugbear = "^22.3.23"
-flake8-docstrings = "^1.6.0"
-isort = "^5.10.1"
-pep8-naming = "^0.12.1"
-pre-commit = "^2.17.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^22"
+flake8 = "^5"
+pytest = "^7.1"
+pre-commit = "^2.20"
+pep8-naming = "^0.13"
+flake8-bugbear = "^22.9"
+flake8-docstrings = "^1.6"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -44,8 +46,7 @@ build-backend = "poetry.core.masonry.api"
 testpaths = "tests"
 
 [tool.black]
-line-length = 119
-experimental-string-processing = true
+preview = true
 
 [tool.isort]
 profile = "black"

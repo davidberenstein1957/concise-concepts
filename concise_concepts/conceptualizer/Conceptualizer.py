@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import itertools
+import json
 import logging
+import re
 from copy import deepcopy
 
 import gensim.downloader
@@ -13,7 +15,43 @@ logger = logging.getLogger(__name__)
 
 
 class Conceptualizer:
-    def __init__(self, nlp: Language, name: str, data: dict, topn: list = None, model_path=None, ent_score=False):
+    def __init__(
+        self,
+        nlp: Language,
+        name: str,
+        data: dict,
+        topn: list = None,
+        model_path=None,
+        word_delimiter="_",
+        ent_score=False,
+        exclude_pos=[],
+        exclude_dep=[],
+        include_compound_words=False,
+        case_sensitive=False,
+    ):
+        """
+        The function takes in a dictionary of words and their synonyms, and then creates a new dictionary of words and
+        their synonyms, but with the words in the new dictionary all in uppercase
+
+        :param nlp: The spaCy model to use.
+        :type nlp: Language
+        :param name: The name of the entity.
+        :type name: str
+        :param data: A dictionary of the words you want to match. The keys are the classes you want to match,
+            and the values are the words you want to expand over.
+        :type data: dict
+        :param topn(): The number of words to be returned for each class.
+        :type topn: list
+        :param model_path: The path to the model you want to use. If you don't have a model, you can use the spaCy one.
+        :param word_delimiter: The delimiter used to separate words in model the dictionary, defaults to _ (optional)
+        :param ent_score: If True, the extension "ent_score" will be added to the Span object. This will be the score of
+            the entity, defaults to False (optional)
+        :param exclude_pos: A list of POS tags to exclude from the rule based match
+        :param exclude_dep: list of dependencies to exclude from the rule based match
+        :param include_compound_words: If True, it will include compound words in the entity. For example,
+            if the entity is "New York", it will also include "New York City" as an entity, defaults to False (optional)
+        :param case_sensitive: Whether to match the case of the words in the text, defaults to False (optional)
+        """
         if Span.has_extension("ent_score"):
             Span.remove_extension("ent_score")
         if ent_score:
@@ -26,6 +64,23 @@ class Conceptualizer:
         self.nlp = nlp
         self.topn = topn
         self.model_path = model_path
+        self.match_rule = {}
+        if exclude_pos:
+            self.match_rule["POS"] = {"NOT_IN": exclude_pos}
+        if exclude_dep:
+            self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
+
+        self.include_compound_words = include_compound_words
+        self.case_sensitive = case_sensitive
+        self.word_delimiter = word_delimiter
+        if "lemmatizer" not in self.nlp.component_names:
+            logger.warning(
+                "No lemmatizer found in spacy pipeline. Consider adding it for matching"
+                " on LEMMA instead of exact text."
+            )
+            self.match_key = "ORTH"
+        else:
+            self.match_key = "LEMMA"
         self.run()
         self.data_upper = {k.upper(): v for k, v in data.items()}
 
@@ -57,7 +112,9 @@ class Conceptualizer:
                 self.topn_dict[key] = 100
         else:
             num_classes = len(list(self.data.keys()))
-            assert len(self.topn) == num_classes, f"Provide a topn integer for each of the {num_classes} classes."
+            assert (
+                len(self.topn) == num_classes
+            ), f"Provide a topn integer for each of the {num_classes} classes."
             for key, n in zip(self.data, self.topn):
                 self.topn_dict[key] = n
 
@@ -73,22 +130,25 @@ class Conceptualizer:
                 self.kv = gensim.downloader.load(self.model_path)
             else:
                 try:
-                    self.kv = FastText.load(self.model_path)
+                    self.kv = FastText.load(self.model_path).wv
                 except Exception as e1:
                     try:
-                        self.kv = Word2Vec.load(self.model_path)
+                        self.kv = Word2Vec.load(self.model_path).wv
                     except Exception as e2:
                         try:
                             self.kv = KeyedVectors.load(self.model_path)
                         except Exception as e3:
                             raise Exception(
-                                f"Not a valid gensim model. FastText, Word2Vec, KeyedVectors.\n {e1}\n {e2}\n {e3}"
+                                "Not a valid gensim model. FastText, Word2Vec,"
+                                f" KeyedVectors.\n {e1}\n {e2}\n {e3}"
                             )
         else:
             wordList = []
             vectorList = []
 
-            assert len(self.nlp.vocab.vectors), "Choose a model with internal embeddings i.e. md or lg."
+            assert len(
+                self.nlp.vocab.vectors
+            ), "Choose a model with internal embeddings i.e. md or lg."
 
             for key, vector in self.nlp.vocab.vectors.items():
                 wordList.append(self.nlp.vocab.strings[key])
@@ -106,17 +166,21 @@ class Conceptualizer:
         verified_data = {}
         for key, value in self.data.items():
             verified_values = []
-            if key.replace(" ", "_") not in self.kv:
+            if not self.check_presence_vocab(key):
                 if verbose:
                     logger.warning(f"key {key} not present in word2vec model")
             for word in value:
-                if word.replace(" ", "_") in self.kv:
-                    verified_values.append(word)
+                if self.check_presence_vocab(word):
+                    verified_values.append(self.check_presence_vocab(word))
                 else:
                     if verbose:
-                        logger.warning(f"word {word} from key {key} not present in word2vec model")
+                        logger.warning(
+                            f"word {word} from key {key} not present in word2vec model"
+                        )
             verified_data[key] = verified_values
-            assert len(verified_values), f"None of the entries for key {key} are present in the word2vec model"
+            assert len(
+                verified_values
+            ), f"None of the entries for key {key} are present in the word2vec model"
         self.data = deepcopy(verified_data)
         self.original_data = deepcopy(self.data)
 
@@ -130,8 +194,8 @@ class Conceptualizer:
             remaining_keys = [rem_key for rem_key in self.data.keys() if rem_key != key]
             remaining_values = [self.data[rem_key] for rem_key in remaining_keys]
             remaining_values = list(itertools.chain.from_iterable(remaining_values))
-            if key in self.kv:
-                key_list = [key]
+            if self.check_presence_vocab(key):
+                key_list = [self.check_presence_vocab(key)]
             else:
                 key_list = []
             similar = self.kv.most_similar(
@@ -149,7 +213,7 @@ class Conceptualizer:
         """
         centroids = {}
         for key in self.data:
-            if key not in self.kv:
+            if not self.check_presence_vocab(key):
                 words = self.data[key]
                 while len(words) != 1:
                     words.remove(self.kv.doesnt_match(words))
@@ -160,13 +224,18 @@ class Conceptualizer:
         for key_x in self.data:
             for key_y in self.data:
                 if key_x != key_y:
-                    self.data[key_x] = [word for word in self.data[key_x] if word not in self.original_data[key_y]]
+                    self.data[key_x] = [
+                        word
+                        for word in self.data[key_x]
+                        if word not in self.original_data[key_y]
+                    ]
 
         for key in self.data:
             self.data[key] = [
                 word
                 for word in self.data[key]
-                if centroids[key] == self.kv.most_similar_to_given(word, list(centroids.values()))
+                if centroids[key]
+                == self.kv.most_similar_to_given(word, list(centroids.values()))
             ]
 
         self.centroids = centroids
@@ -183,7 +252,11 @@ class Conceptualizer:
         for key_x in self.data:
             for key_y in self.data:
                 if key_x != key_y:
-                    self.data[key_x] = [word for word in self.data[key_x] if word not in self.original_data[key_y]]
+                    self.data[key_x] = [
+                        word
+                        for word in self.data[key_x]
+                        if word not in self.original_data[key_y]
+                    ]
 
         self.verify_data(verbose=False)
 
@@ -194,7 +267,9 @@ class Conceptualizer:
         each concept.
         """
         for key in self.data:
-            self.data[key] = list(set([doc[0].lemma_ for doc in self.nlp.pipe(self.data[key])]))
+            self.data[key] = list(
+                set([doc[0].lemma_ for doc in self.nlp.pipe(self.data[key])])
+            )
 
     def create_conceptual_patterns(self):
         """
@@ -223,42 +298,69 @@ class Conceptualizer:
         The pattern is
         """
         patterns = []
-        for key in self.data:
-            for word in self.data[key]:
-                if word != key and word.isalnum():
-                    individual_pattern = {
-                        "lemma": {"regex": r"(?i)" + word},
-                        "POS": {"NOT_IN": ["VERB"]},
-                        "DEP": {"NOT_IN": ["nsubjpass"]},
-                    }
 
-                    patterns.append(
-                        {
-                            "label": key.upper(),
-                            "pattern": [
-                                individual_pattern,
-                            ],
-                            "id": f"{key}_individual",
-                        }
-                    )
+        def add_patterns(input_dict):
+            for key in input_dict:
+                if self.match_key == "LEMMA":
+                    words = [
+                        "".join(
+                            [
+                                token.lemma_ if token.lemma_ else token.text
+                                for token in doc
+                            ]
+                        )
+                        for doc in self.nlp.pipe(input_dict[key])
+                    ]
+                else:
+                    words = input_dict[key]
+                for word in words:
+                    if word != key:
+                        specific_copy = deepcopy(self.match_rule)
+                        word_parts = re.split(f"[{self.word_delimiter}]+", word)
+                        if len(word_parts) > 1:
+                            operators = [" ", "-"]
+                        else:
+                            operators = [""]
 
-                    default_pattern = {
-                        "lemma": {"regex": r"(?i)" + word},
-                        "POS": {"NOT_IN": ["VERB"]},
-                        "DEP": {"NOT_IN": ["nsubjpass", "compound"]},
-                    }
+                        for op in operators:
+                            if self.case_sensitive:
+                                specific_copy[self.match_key] = "{op}".join(word_parts)
+                            else:
+                                specific_copy[self.match_key] = {
+                                    "regex": r"(?i)" + "{op}".join(word_parts)
+                                }
 
-                    patterns.append(
-                        {
-                            "label": key.upper(),
-                            "pattern": [
-                                {"DEP": {"IN": ["amod", "compound"]}, "OP": "?"},
-                                default_pattern,
-                                {"DEP": {"IN": ["amod", "compound"]}, "OP": "?"},
-                            ],
-                            "id": f"{key}_compound",
-                        }
-                    )
+                            patterns.append(
+                                {
+                                    "label": key.upper(),
+                                    "pattern": [
+                                        specific_copy,
+                                    ],
+                                    "id": f"{word}_{op}_individual",
+                                }
+                            )
+
+                            if self.include_compound_words:
+                                compound_rule = {
+                                    "DEP": {"IN": ["amod", "compound"]},
+                                    "OP": "?",
+                                }
+                                patterns.append(
+                                    {
+                                        "label": key.upper(),
+                                        "pattern": [
+                                            compound_rule,
+                                            specific_copy,
+                                            compound_rule,
+                                        ],
+                                        "id": f"{word}_{op}_compound",
+                                    }
+                                )
+
+        add_patterns(self.data)
+        add_patterns(self.original_data)
+        with open("matching_patterns.json", "w") as f:
+            json.dump(patterns, f)
         self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
         self.ruler.add_patterns(patterns)
 
@@ -301,13 +403,32 @@ class Conceptualizer:
         ents = doc.ents
         for ent in ents:
             if ent.label_ in self.data_upper:
-                entity = [part for part in ent.text.split() if part in self.kv]
-                concept = [word for word in self.data_upper[ent.label_] if word in self.kv]
+                entity = [
+                    self.check_presence_vocab(part)
+                    for part in ent.text.split()
+                    if self.check_presence_vocab(part)
+                ]
+                concept = [
+                    self.check_presence_vocab(word)
+                    for word in self.data_upper[ent.label_]
+                    if word in self.check_presence_vocab(word)
+                ]
                 if entity and concept:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
-                    ent._.ent_score = 1
+                    ent._.ent_score = 0
+                    logger.warning(
+                        f"Entity {entity} not found in model. Setting score to 0."
+                    )
             else:
-                ent._.ent_score = 1
+                ent._.ent_score = 0
+                logger.warning(
+                    f"Entity {entity} not found in model. Setting score to 0."
+                )
         doc.ents = ents
         return doc
+
+    def check_presence_vocab(self, word):
+        for op in [" ", "-"]:
+            if word.replace(op, self.word_delimiter) in self.kv:
+                return word.replace(op, self.word_delimiter)

@@ -15,12 +15,6 @@ repos:
       - id: destroyed-symlinks
       - id: detect-private-key
       - id: fix-encoding-pragma
-  # - repo: https://github.com/pycqa/bandit
-  #   rev: 1.7.0
-  #   hooks:
-  #     - id: bandit
-  #       # Bandit does not need to run on test code
-  #       exclude: tests/*
   - repo: https://github.com/psf/black
     rev: 22.3.0
     hooks:
@@ -38,7 +32,3 @@ repos:
       - id: flake8
         additional_dependencies:
           ["flake8-docstrings", "flake8-bugbear", "pep8-naming"]
-  # - repo: https://github.com/psf/black
-  #   rev: "22.1.0"
-  #   hooks:
-  #     - id: black-jupyter
