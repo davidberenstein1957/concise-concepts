@@ -163,7 +163,7 @@ class Conceptualizer:
         It takes a dictionary of lists of words, and returns a dictionary of lists of words,
         where each word in the list is present in the word2vec model
         """
-        verified_data = {}
+        verified_data = dict()
         for key, value in self.data.items():
             verified_values = []
             if not self.check_presence_vocab(key):
@@ -181,8 +181,8 @@ class Conceptualizer:
             assert len(
                 verified_values
             ), f"None of the entries for key {key} are present in the word2vec model"
-        self.data = deepcopy(verified_data)
-        self.original_data = deepcopy(self.data)
+        self.data = verified_data
+        self.original_data = self.data
 
     def expand_concepts(self):
         """
@@ -244,9 +244,8 @@ class Conceptualizer:
         """
         It takes the original data and adds the new data to it, then removes the new data from the original data.
         """
-        data = deepcopy(self.original_data)
         for key in self.data:
-            self.data[key] += data[key]
+            self.data[key] += self.original_data[key]
             self.data[key] = list(set(self.data[key]))
 
         for key_x in self.data:
@@ -315,7 +314,8 @@ class Conceptualizer:
                     words = input_dict[key]
                 for word in words:
                     if word != key:
-                        specific_copy = deepcopy(self.match_rule)
+                        specific_match_rule = dict()
+                        specific_match_rule.update(self.match_rule)
                         word_parts = re.split(f"[{self.word_delimiter}]+", word)
                         if len(word_parts) > 1:
                             operators = [" ", "-"]
