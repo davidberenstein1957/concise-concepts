@@ -327,7 +327,8 @@ class Conceptualizer:
                                 specific_copy[self.match_key] = "{op}".join(word_parts)
                             else:
                                 specific_copy[self.match_key] = {
-                                    "regex": r"(?i)" + "{op}".join(word_parts)
+                                    "regex": r"(?i)"
+                                    + re.escape(f"{op}".join(word_parts))
                                 }
 
                             patterns.append(
