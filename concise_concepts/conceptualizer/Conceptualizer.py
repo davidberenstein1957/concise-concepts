@@ -21,13 +21,22 @@ class Conceptualizer:
         name: str,
         data: dict,
         topn: list = None,
-        model_path=None,
-        word_delimiter="_",
-        ent_score=False,
-        exclude_pos=[],
-        exclude_dep=[],
-        include_compound_words=False,
-        case_sensitive=False,
+        model_path: str = None,
+        word_delimiter: str = "_",
+        ent_score: bool = False,
+        exclude_pos: list = [
+            "VERB",
+            "AUX",
+            "ADP",
+            "DET",
+            "CCONJ",
+            "PUNCT",
+            "ADV",
+            "ADJ",
+        ],
+        exclude_dep: list = ["nsubjpass", "compound"],
+        include_compound_words: bool = False,
+        case_sensitive: bool = False,
     ):
         """
         The function takes in a dictionary of words and their synonyms, and then creates a new dictionary of words and
@@ -168,21 +177,22 @@ class Conceptualizer:
             verified_values = []
             if not self.check_presence_vocab(key):
                 if verbose:
-                    logger.warning(f"key {key} not present in word2vec model")
+                    logger.warning(f"key ´{key}´ not present in vector model")
             for word in value:
                 if self.check_presence_vocab(word):
                     verified_values.append(self.check_presence_vocab(word))
                 else:
                     if verbose:
                         logger.warning(
-                            f"word {word} from key {key} not present in word2vec model"
+                            f"word ´{word}´ from key ´{key}´ not present in vector"
+                            " model"
                         )
             verified_data[key] = verified_values
             assert len(
                 verified_values
-            ), f"None of the entries for key {key} are present in the word2vec model"
-        self.data = verified_data
-        self.original_data = self.data
+            ), f"None of the entries for key {key} are present in the vector model"
+        self.data = deepcopy(verified_data)
+        self.original_data = deepcopy(self.data)
 
     def expand_concepts(self):
         """
@@ -406,32 +416,42 @@ class Conceptualizer:
         ents = doc.ents
         for ent in ents:
             if ent.label_ in self.data_upper:
-                entity = [
-                    self.check_presence_vocab(part)
-                    for part in ent.text.split()
-                    if self.check_presence_vocab(part)
-                ]
+                if self.check_presence_vocab(ent.text):
+                    entity = [ent.text]
+                else:
+                    entity = [
+                        self.check_presence_vocab(part)
+                        for part in ent.text.split()
+                        if self.check_presence_vocab(part)
+                    ]
                 concept = [
                     self.check_presence_vocab(word)
                     for word in self.data_upper[ent.label_]
-                    if word in self.check_presence_vocab(word)
+                    if self.check_presence_vocab(word)
                 ]
                 if entity and concept:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
                     ent._.ent_score = 0
                     logger.warning(
-                        f"Entity {entity} not found in model. Setting score to 0."
+                        f"Entity ´{ent.text}´ and/or label ´{concept}´ not found in"
+                        " vector model. Nothing to compare to, so setting"
+                        " ent._.ent_score to 0."
                     )
             else:
                 ent._.ent_score = 0
+
                 logger.warning(
-                    f"Entity {entity} not found in model. Setting score to 0."
+                    f"Entity ´{ent.text}´ not found in vector model. Nothing to compare"
+                    " to, so setting ent._.ent_score to 0."
                 )
         doc.ents = ents
         return doc
 
     def check_presence_vocab(self, word):
         for op in [" ", "-"]:
-            if word.replace(op, self.word_delimiter) in self.kv:
-                return word.replace(op, self.word_delimiter)
+            check_word = word.replace(op, self.word_delimiter)
+            if not self.case_sensitive:
+                check_word = check_word.lower()
+            if check_word in self.kv:
+                return check_word

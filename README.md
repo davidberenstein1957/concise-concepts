@@ -114,7 +114,7 @@ data = {
 }
 
 # model from https://radimrehurek.com/gensim/downloader.html or path to local file
-model_path = "glove-twitter-25"
+model_path = "glove-wiki-gigaword-300"
 
 nlp.add_pipe("concise_concepts", config={"data": data, "model_path": model_path})
 ````
