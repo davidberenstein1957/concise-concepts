@@ -33,8 +33,10 @@ class Conceptualizer:
             "PUNCT",
             "ADV",
             "ADJ",
+            "PART",
+            "PRON",
         ],
-        exclude_dep: list = ["nsubjpass", "compound"],
+        exclude_dep: list = [],
         include_compound_words: bool = False,
         case_sensitive: bool = False,
     ):
