@@ -324,9 +324,11 @@ class Conceptualizer:
 
                         for op in operators:
                             if self.case_sensitive:
-                                specific_copy[self.match_key] = "{op}".join(word_parts)
+                                specific_match_rule[self.match_key] = "{op}".join(
+                                    word_parts
+                                )
                             else:
-                                specific_copy[self.match_key] = {
+                                specific_match_rule[self.match_key] = {
                                     "regex": r"(?i)"
                                     + re.escape(f"{op}".join(word_parts))
                                 }
@@ -335,7 +337,7 @@ class Conceptualizer:
                                 {
                                     "label": key.upper(),
                                     "pattern": [
-                                        specific_copy,
+                                        specific_match_rule,
                                     ],
                                     "id": f"{word}_{op}_individual",
                                 }
@@ -351,7 +353,7 @@ class Conceptualizer:
                                         "label": key.upper(),
                                         "pattern": [
                                             compound_rule,
-                                            specific_copy,
+                                            specific_match_rule,
                                             compound_rule,
                                         ],
                                         "id": f"{word}_{op}_compound",
