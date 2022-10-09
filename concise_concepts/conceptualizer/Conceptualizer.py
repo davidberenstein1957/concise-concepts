@@ -41,6 +41,7 @@ class Conceptualizer:
         include_compound_words: bool = False,
         case_sensitive: bool = False,
         json_path: str = "./matching_patterns.json",
+        verbose: bool = True,
     ):
         """
         The function takes in a dictionary of words and their synonyms, and then creates a new dictionary of words and
@@ -65,6 +66,8 @@ class Conceptualizer:
             if the entity is "New York", it will also include "New York City" as an entity, defaults to False (optional)
         :param case_sensitive: Whether to match the case of the words in the text, defaults to False (optional)
         """
+        self.verbose = verbose
+        self.log_cache = {"key": list(), "word": list(), "word_key": list()}
         if Span.has_extension("ent_score"):
             Span.remove_extension("ent_score")
         if ent_score:
@@ -102,7 +105,7 @@ class Conceptualizer:
         self.check_validity_path()
         self.determine_topn()
         self.set_gensim_model()
-        self.verify_data()
+        self.verify_data(self.verbose)
         self.expand_concepts()
         self.verify_data(verbose=False)
         # settle words around overlapping concepts
@@ -196,20 +199,31 @@ class Conceptualizer:
             verified_values = []
             if not self.check_presence_vocab(key):
                 if verbose:
-                    logger.warning(f"key ´{key}´ not present in vector model")
+                    if key not in self.log_cache["key"]:
+                        logger.warning(f"key ´{key}´ not present in vector model")
+                        self.log_cache["key"].append(key)
             for word in value:
                 if self.check_presence_vocab(word):
                     verified_values.append(self.check_presence_vocab(word))
                 else:
                     if verbose:
-                        logger.warning(
-                            f"word ´{word}´ from key ´{key}´ not present in vector"
-                            " model"
-                        )
+                        if word not in self.log_cache["word"]:
+                            logger.warning(
+                                f"word ´{word}´ from key ´{key}´ not present in vector"
+                                " model"
+                            )
+                            self.log_cache["word"].append(word)
             verified_data[key] = verified_values
-            assert len(
-                verified_values
-            ), f"None of the entries for key {key} are present in the vector model"
+            if not len(verified_values):
+                msg = (
+                    f"None of the entries for key {key} are present in the vector"
+                    " model. "
+                )
+                if self.check_presence_vocab(key):
+                    logger.warning(msg + f"Using {key} as word to expand over instead.")
+                    verified_data[key] = self.check_presence_vocab(key)
+                else:
+                    raise Exception(msg)
         self.data = deepcopy(verified_data)
         self.original_data = deepcopy(self.data)
 
@@ -453,18 +467,23 @@ class Conceptualizer:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
                     ent._.ent_score = 0
-                    logger.warning(
-                        f"Entity ´{ent.text}´ and/or label ´{concept}´ not found in"
-                        " vector model. Nothing to compare to, so setting"
-                        " ent._.ent_score to 0."
-                    )
+                    if self.verbose:
+                        if f"{ent.text}_{concept}" not in self.log_cache["key_word"]:
+                            logger.warning(
+                                f"Entity ´{ent.text}´ and/or label ´{concept}´ not"
+                                " found in vector model. Nothing to compare to, so"
+                                " setting ent._.ent_score to 0."
+                            )
+                            self.log_cache["key_word"].append(f"{ent.text}_{concept}")
             else:
                 ent._.ent_score = 0
-
-                logger.warning(
-                    f"Entity ´{ent.text}´ not found in vector model. Nothing to compare"
-                    " to, so setting ent._.ent_score to 0."
-                )
+                if self.verbose:
+                    if ent.text not in self.log_cache["word"]:
+                        logger.warning(
+                            f"Entity ´{ent.text}´ not found in vector model. Nothing to"
+                            " compare to, so setting ent._.ent_score to 0."
+                        )
+                        self.log_cache["word"].append(ent.text)
         doc.ents = ents
         return doc
 

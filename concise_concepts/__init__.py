@@ -30,6 +30,7 @@ from .conceptualizer import Conceptualizer
         "include_compound_words": False,
         "case_sensitive": False,
         "json_path": "./matching_patterns.json",
+        "verbose": True,
     },
 )
 def make_concise_concepts(
@@ -45,6 +46,7 @@ def make_concise_concepts(
     include_compound_words: bool,
     case_sensitive: bool,
     json_path: str,
+    verbose: bool,
 ):
     return Conceptualizer(
         nlp=nlp,
@@ -59,4 +61,5 @@ def make_concise_concepts(
         include_compound_words=include_compound_words,
         case_sensitive=case_sensitive,
         json_path=json_path,
+        verbose=verbose,
     )
