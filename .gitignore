@@ -137,3 +137,4 @@ dmypy.json
 *.model.*
 /word2vec.wordvectors
 /word2vec.wordvectors.vectors.npy
+matching_patterns.json
