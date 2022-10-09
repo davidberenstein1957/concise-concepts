@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from copy import deepcopy
+from pathlib import Path
 
 import gensim.downloader
 from gensim.models import FastText, Word2Vec
@@ -39,6 +40,7 @@ class Conceptualizer:
         exclude_dep: list = [],
         include_compound_words: bool = False,
         case_sensitive: bool = False,
+        json_path: str = "./matching_patterns.json",
     ):
         """
         The function takes in a dictionary of words and their synonyms, and then creates a new dictionary of words and
@@ -80,7 +82,8 @@ class Conceptualizer:
             self.match_rule["POS"] = {"NOT_IN": exclude_pos}
         if exclude_dep:
             self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
-
+        self.json_path = json_path
+        self.check_validity_path()
         self.include_compound_words = include_compound_words
         self.case_sensitive = case_sensitive
         self.word_delimiter = word_delimiter
@@ -96,6 +99,7 @@ class Conceptualizer:
         self.data_upper = {k.upper(): v for k, v in data.items()}
 
     def run(self):
+        self.check_validity_path()
         self.determine_topn()
         self.set_gensim_model()
         self.verify_data()
@@ -111,6 +115,19 @@ class Conceptualizer:
 
         if not self.ent_score:
             del self.kv
+
+    def check_validity_path(self):
+        if self.json_path:
+            if Path(self.json_path).suffix:
+                Path(self.json_path).parents[0].mkdir(parents=True, exist_ok=True)
+            else:
+                Path(self.json_path).mkdir(parents=True, exist_ok=True)
+                old_path = str(self.json_path)
+                self.json_path = Path(self.json_path) / "matching_patterns.json"
+                logger.warning(
+                    f"Path ´{old_path} is a directory, not a file. Setting"
+                    f" ´json_path´to {self.json_path}"
+                )
 
     def determine_topn(self):
         """
@@ -374,8 +391,9 @@ class Conceptualizer:
 
         add_patterns(self.data)
         add_patterns(self.original_data)
-        with open("matching_patterns.json", "w") as f:
-            json.dump(patterns, f)
+        if self.json_path:
+            with open(self.json_path, "w") as f:
+                json.dump(patterns, f)
         self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
         self.ruler.add_patterns(patterns)
 
