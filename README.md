@@ -11,7 +11,7 @@ with easy! Now with entity scoring!
 
 
 ## Usage
-This library defines matching patterns based on most similar words found in each group, which are used to fill a [spaCy EntityRuler](https://spacy.io/api/entityruler). To better understand the rule-definition, I recommend playing around with the [spaCy Rule-based Matcher Explorer](https://demos.explosion.ai/matcher).
+This library defines matching patterns based on the most similar words found in each group, which are used to fill a [spaCy EntityRuler](https://spacy.io/api/entityruler). To better understand the rule definition, I recommend playing around with the [spaCy Rule-based Matcher Explorer](https://demos.explosion.ai/matcher).
 
 ### Tutorials
 - [TechVizTheDataScienceGuy](https://www.youtube.com/c/TechVizTheDataScienceGuy) created a [nice tutorial](https://prakhar-mishra.medium.com/few-shot-named-entity-recognition-in-natural-language-processing-92d31f0d1143) on how to use it.
@@ -32,12 +32,13 @@ pip install concise-concepts
 ```python
 import spacy
 from spacy import displacy
+
 import concise_concepts
 
 data = {
     "fruit": ["apple", "pear", "orange"],
     "vegetable": ["broccoli", "spinach", "tomato"],
-    "meat": ["beef", "pork", "fish", "lamb"]
+    "meat": ["beef", "pork", "fish", "lamb"],
 }
 
 text = """
@@ -47,12 +48,25 @@ text = """
     Later, add some oranges and chickens. """
 
 nlp = spacy.load("en_core_web_lg", disable=["ner"])
-# ent_score for entity condifence scoring
-nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True, "verbose": True})
+
+nlp.add_pipe(
+    "concise_concepts",
+    config={
+        "data": data,
+        "ent_score": True, # Entity Scoring section
+        "verbose": True,
+        "exclude_pos": ["VERB", "AUX"],
+        "exclude_dep": ["DOBJ", "PCOMP"],
+        "include_compound_words": False,
+        "json_path": "./fruitful_patterns.json",
+    },
+)
 doc = nlp(text)
 
-options = {"colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
-           "ents": ["fruit", "vegetable", "meat"]}
+options = {
+    "colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
+    "ents": ["fruit", "vegetable", "meat"],
+}
 
 ents = doc.ents
 for ent in ents:
@@ -68,7 +82,7 @@ displacy.render(doc, style="ent", options=options)
 
 # Features
 ## Matching Pattern Rules
-
+A general introduction about the usage of matching patterns in the [usage section](#usage).
 ### Customizing Matching Pattern Rules
 Even though the baseline parameters provide a decent result, the construction of these matching rules can be customized via the config passed to the spaCy pipeline.
 
@@ -79,7 +93,7 @@ Even though the baseline parameters provide a decent result, the construction of
 
 
 ### Analyze Matching Pattern Rules
-To motivate actually looking at the data and support interpretability, the matching patterns that have been generated are stored as `./main_patterns.json`. This behaviour can be changed by using the `json_path` variable via the config passed to the spaCy pipeline.
+To motivate actually looking at the data and support interpretability, the matching patterns that have been generated are stored as `./main_patterns.json`. This behavior can be changed by using the `json_path` variable via the config passed to the spaCy pipeline.
 
 ## Most Similar Word Expansion
 
@@ -124,7 +138,7 @@ print([(ent.text, ent.label_, ent._.ent_score) for ent in doc.ents])
 ```
 
 ## Custom Embedding Models
-Use `gensim.Word2vec` `gensim.FastText` or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom  model path.
+Use `gensim.Word2vec` `gensim.FastText` or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path.
 ```python
 data = {
     "fruit": ["apple", "pear", "orange"],

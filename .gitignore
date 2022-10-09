@@ -135,7 +135,5 @@ dmypy.json
 # Downloaded models
 *.model
 *.model.*
-/word2vec.wordvectors
-/word2vec.wordvectors.vectors.npy
-matching_patterns.json
+*.json
 test.py
