@@ -48,7 +48,7 @@ text = """
 
 nlp = spacy.load("en_core_web_lg", disable=["ner"])
 # ent_score for entity condifence scoring
-nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True})
+nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True, "verbose": True})
 doc = nlp(text)
 
 options = {"colors": {"fruit": "darkorange", "vegetable": "limegreen", "meat": "salmon"},
@@ -70,13 +70,13 @@ displacy.render(doc, style="ent", options=options)
 ## Matching Pattern Rules
 
 ### Customizing Matching Pattern Rules
-Even though the baseline parameters provide a decent result, the construction of these matching rules can be customized
-via the config passed to the spaCy pipeline.
+Even though the baseline parameters provide a decent result, the construction of these matching rules can be customized via the config passed to the spaCy pipeline.
 
  - `exclude_pos`: A list of POS tags to be excluded from the rule-based match.
  - `exclude_dep`: A list of dependencies to be excluded from the rule-based match.
  - `include_compound_words`:  If True, it will include compound words in the entity. For example, if the entity is "New York", it will also include "New York City" as an entity.
  - `case_sensitive`: Whether to match the case of the words in the text.
+
 
 ### Analyze Matching Pattern Rules
 To motivate actually looking at the data and support interpretability, the matching patterns that have been generated are stored as `./main_patterns.json`. This behaviour can be changed by using the `json_path` variable via the config passed to the spaCy pipeline.
