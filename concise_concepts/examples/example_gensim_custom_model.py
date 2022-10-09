@@ -3,7 +3,7 @@ import spacy
 from gensim.models import Word2Vec
 from gensim.test.utils import common_texts
 
-import concise_concepts
+import concise_concepts  # noqa: F401
 
 data = {"human": ["trees"], "interface": ["computer"]}
 

@@ -214,9 +214,16 @@ class Conceptualizer:
                             )
                             self.log_cache["word"].append(word)
             verified_data[key] = verified_values
-            assert len(
-                verified_values
-            ), f"None of the entries for key {key} are present in the vector model"
+            if not len(verified_values):
+                msg = (
+                    f"None of the entries for key {key} are present in the vector"
+                    " model. "
+                )
+                if self.check_presence_vocab(key):
+                    logger.warning(msg + f"Using {key} as word to expand over instead.")
+                    verified_data[key] = self.check_presence_vocab(key)
+                else:
+                    raise Exception(msg)
         self.data = deepcopy(verified_data)
         self.original_data = deepcopy(self.data)
 
