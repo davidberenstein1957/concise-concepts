@@ -240,10 +240,9 @@ class Conceptualizer:
                 positive=self.data[key] + key_list,
                 topn=self.topn_dict[key],
             )
-            for word, _ratio in similar:
-                present_word = self.check_presence_vocab(word)
-                self.data[key].append(present_word if present_word else word)
-            self.data[key] = list(set(self.data[key]))
+            self.data[key] = list(
+                {self.check_presence_vocab(word) for word, _ratio in similar}
+            )
 
     def resolve_overlapping_concepts(self):
         """
