@@ -82,10 +82,12 @@ class Conceptualizer:
                 "PART",
                 "PRON",
             ]
-        self.match_rule["POS"] = {"NOT_IN": exclude_pos}
+        if exclude_pos:
+            self.match_rule["POS"] = {"NOT_IN": exclude_pos}
         if exclude_dep is None:
             exclude_dep = []
-        self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
+        if exclude_dep:
+            self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
         self.json_path = json_path
         self.check_validity_path()
         self.include_compound_words = include_compound_words
@@ -102,7 +104,7 @@ class Conceptualizer:
         self.run()
         self.data_upper = {k.upper(): v for k, v in data.items()}
 
-    def run(self):
+    def run(self) -> None:
         self.check_validity_path()
         self.determine_topn()
         self.set_gensim_model()
@@ -119,7 +121,11 @@ class Conceptualizer:
         if not self.ent_score:
             del self.kv
 
-    def check_validity_path(self):
+    def check_validity_path(self) -> None:
+        """
+        If the path is a file, create the parent directory if it doesn't exist. If the path is a directory, create the
+        directory and set the path to the default file name
+        """
         if self.json_path:
             if Path(self.json_path).suffix:
                 Path(self.json_path).parents[0].mkdir(parents=True, exist_ok=True)
@@ -132,7 +138,7 @@ class Conceptualizer:
                     f" ´json_path´to {self.json_path}"
                 )
 
-    def determine_topn(self):
+    def determine_topn(self) -> None:
         """
         If the user doesn't specify a topn value for each class,
         then the topn value for each class is set to 100
@@ -146,7 +152,7 @@ class Conceptualizer:
             ), f"Provide a topn integer for each of the {num_classes} classes."
             self.topn_dict = dict(zip(self.data, self.topn))
 
-    def set_gensim_model(self):
+    def set_gensim_model(self) -> None:
         """
         If the model_path is not None, then we try to load the model from the path.
         If it's not a valid path, then we raise an exception.
@@ -186,7 +192,7 @@ class Conceptualizer:
 
             self.kv.add_vectors(wordList, vectorList)
 
-    def verify_data(self, verbose: bool = True):
+    def verify_data(self, verbose: bool = True) -> None:
         """
         It takes a dictionary of lists of words, and returns a dictionary of lists of words,
         where each word in the list is present in the word2vec model
@@ -222,7 +228,7 @@ class Conceptualizer:
                     raise Exception(msg)
         self.data = deepcopy(verified_data)
 
-    def expand_concepts(self):
+    def expand_concepts(self) -> None:
         """
         For each key in the data dictionary, find the topn most similar words to the key and the values in the data
         dictionary, and add those words to the values in the data dictionary
@@ -244,7 +250,7 @@ class Conceptualizer:
                 {self.check_presence_vocab(word) for word, _ratio in similar}
             )
 
-    def resolve_overlapping_concepts(self):
+    def resolve_overlapping_concepts(self) -> None:
         """
         It removes words from the data that are in other concepts, and then removes words that are not closest to the
         centroid of the concept
@@ -256,7 +262,7 @@ class Conceptualizer:
                 if key == self.kv.most_similar_to_given(word, list(self.data.keys()))
             ]
 
-    def infer_original_data(self):
+    def infer_original_data(self) -> None:
         """
         It takes the original data and adds the new data to it, then removes the new data from the original data.
         """
@@ -272,7 +278,7 @@ class Conceptualizer:
                         if word not in self.original_data[key_y]
                     ]
 
-    def lemmatize_concepts(self):
+    def lemmatize_concepts(self) -> None:
         """
         For each key in the data dictionary,
         the function takes the list of concepts associated with that key, and lemmatizes
@@ -283,7 +289,7 @@ class Conceptualizer:
                 set([doc[0].lemma_ for doc in self.nlp.pipe(self.data[key])])
             )
 
-    def create_conceptual_patterns(self):
+    def create_conceptual_patterns(self) -> None:
         """
         For each key in the data dictionary,
         create a pattern for each word in the list of words associated with that key.
@@ -311,7 +317,13 @@ class Conceptualizer:
         """
         patterns = []
 
-        def add_patterns(input_dict):
+        def add_patterns(input_dict: dict) -> None:
+            """
+            It creates a  list of dictionaries that can be used for a spaCy entity ruler
+
+            :param input_dict: a dictionary
+            :type input_dict: dict
+            """
             for key in input_dict:
                 if self.match_key == "LEMMA":
                     words = [
@@ -383,7 +395,7 @@ class Conceptualizer:
         self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
         self.ruler.add_patterns(patterns)
 
-    def __call__(self, doc: Doc):
+    def __call__(self, doc: Doc) -> Doc:
         """
         It takes a doc object and assigns a score to each entity in the doc object
 
@@ -394,7 +406,7 @@ class Conceptualizer:
             doc = self.assign_score_to_entities(doc)
         return doc
 
-    def pipe(self, stream, batch_size=128):
+    def pipe(self, stream, batch_size=128) -> Doc:
         """
         It takes a stream of documents, and for each document,
         it assigns a score to each entity in the document
@@ -408,7 +420,7 @@ class Conceptualizer:
                     doc = self.assign_score_to_entities(doc)
                 yield doc
 
-    def assign_score_to_entities(self, doc: Doc):
+    def assign_score_to_entities(self, doc: Doc) -> Doc:
         """
         The function takes a spaCy document as input and assigns a score to each entity in the document. The score is
         calculated using the word embeddings of the entity and the concept.
@@ -460,6 +472,14 @@ class Conceptualizer:
         return doc
 
     def _check_presence_vocab(self, word: str) -> str:
+        """
+        If the word is in the vocabulary, return the word. If not, replace spaces and dashes with the word delimiter and
+        check if the new word is in the vocabulary. If so, return the new word
+
+        :param word: str - the word to check
+        :type word: str
+        :return: The word or the check_word
+        """
         if word in self.kv:
             return word
         for op in [" ", "-"]:
@@ -468,6 +488,16 @@ class Conceptualizer:
                 return check_word
 
     def check_presence_vocab(self, word: str) -> str:
+        """
+        If the word is not lowercase and the case_sensitive flag is set to False, then check if the lowercase version of
+        the word is in the vocabulary. If it is, return the lowercase version of the word. Otherwise, return the word
+        itself
+
+        :param word: The word to check for presence in the vocabulary
+        :type word: str
+        :return: The word itself if it is present in the vocabulary, otherwise the word with the highest probability of
+        being the word that was intended.
+        """
         if not word.islower() and not self.case_sensitive:
             present_word = self._check_presence_vocab(word.lower())
             if present_word:
