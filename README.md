@@ -53,7 +53,7 @@ nlp.add_pipe(
     "concise_concepts",
     config={
         "data": data,
-        "ent_score": True, # Entity Scoring section
+        "ent_score": True,  # Entity Scoring section
         "verbose": True,
         "exclude_pos": ["VERB", "AUX"],
         "exclude_dep": ["DOBJ", "PCOMP"],
@@ -70,7 +70,7 @@ options = {
 
 ents = doc.ents
 for ent in ents:
-    new_label = f"{ent.label_} ({float(ent._.ent_score):.0%})"
+    new_label = f"{ent.label_} ({ent._.ent_score:.0%})"
     options["colors"][new_label] = options["colors"].get(ent.label_.lower(), None)
     options["ents"].append(new_label)
     ent.label_ = new_label
@@ -128,13 +128,13 @@ data = {
 text = """Sony was founded in Japan."""
 
 nlp = spacy.load("en_core_web_lg")
-nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True})
+nlp.add_pipe("concise_concepts", config={"data": data, "ent_score": True, "case_sensitive": True})
 doc = nlp(text)
 
 print([(ent.text, ent.label_, ent._.ent_score) for ent in doc.ents])
 # output
 #
-# [('Sony', 'ORG', 0.63740385), ('Japan', 'GPE', 0.5896993)]
+# [('Sony', 'ORG', 0.5207586), ('Japan', 'GPE', 0.7371268)]
 ```
 
 ## Custom Embedding Models
@@ -151,5 +151,3 @@ model_path = "glove-wiki-gigaword-300"
 
 nlp.add_pipe("concise_concepts", config={"data": data, "model_path": model_path})
 ````
-
-

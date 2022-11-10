@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import itertools
 import json
 import logging
 import re
@@ -25,19 +24,8 @@ class Conceptualizer:
         model_path: str = None,
         word_delimiter: str = "_",
         ent_score: bool = False,
-        exclude_pos: list = [
-            "VERB",
-            "AUX",
-            "ADP",
-            "DET",
-            "CCONJ",
-            "PUNCT",
-            "ADV",
-            "ADJ",
-            "PART",
-            "PRON",
-        ],
-        exclude_dep: list = [],
+        exclude_pos: list = None,
+        exclude_dep: list = None,
         include_compound_words: bool = False,
         case_sensitive: bool = False,
         json_path: str = "./matching_patterns.json",
@@ -81,10 +69,23 @@ class Conceptualizer:
         self.topn = topn
         self.model_path = model_path
         self.match_rule = {}
-        if exclude_pos:
-            self.match_rule["POS"] = {"NOT_IN": exclude_pos}
-        if exclude_dep:
-            self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
+        if exclude_pos is None:
+            exclude_pos = [
+                "VERB",
+                "AUX",
+                "ADP",
+                "DET",
+                "CCONJ",
+                "PUNCT",
+                "ADV",
+                "ADJ",
+                "PART",
+                "PRON",
+            ]
+        self.match_rule["POS"] = {"NOT_IN": exclude_pos}
+        if exclude_dep is None:
+            exclude_dep = []
+        self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
         self.json_path = json_path
         self.check_validity_path()
         self.include_compound_words = include_compound_words
@@ -107,7 +108,6 @@ class Conceptualizer:
         self.set_gensim_model()
         self.verify_data(self.verbose)
         self.expand_concepts()
-        self.verify_data(verbose=False)
         # settle words around overlapping concepts
         for _ in range(5):
             self.expand_concepts()
@@ -137,17 +137,14 @@ class Conceptualizer:
         If the user doesn't specify a topn value for each class,
         then the topn value for each class is set to 100
         """
-        self.topn_dict = {}
         if not self.topn:
-            for key in self.data:
-                self.topn_dict[key] = 100
+            self.topn_dict = {key: 100 for key in self.data}
         else:
-            num_classes = len(list(self.data.keys()))
+            num_classes = len(self.data)
             assert (
                 len(self.topn) == num_classes
             ), f"Provide a topn integer for each of the {num_classes} classes."
-            for key, n in zip(self.data, self.topn):
-                self.topn_dict[key] = n
+            self.topn_dict = dict(zip(self.data, self.topn))
 
     def set_gensim_model(self):
         """
@@ -179,7 +176,7 @@ class Conceptualizer:
 
             assert len(
                 self.nlp.vocab.vectors
-            ), "Choose a model with internal embeddings i.e. md or lg."
+            ), "Choose a spaCy model with internal embeddings, e.g. md or lg."
 
             for key, vector in self.nlp.vocab.vectors.items():
                 wordList.append(self.nlp.vocab.strings[key])
@@ -194,38 +191,36 @@ class Conceptualizer:
         It takes a dictionary of lists of words, and returns a dictionary of lists of words,
         where each word in the list is present in the word2vec model
         """
-        verified_data = dict()
+        verified_data: dict[str, list[str]] = dict()
         for key, value in self.data.items():
             verified_values = []
-            if not self.check_presence_vocab(key):
-                if verbose:
-                    if key not in self.log_cache["key"]:
-                        logger.warning(f"key ´{key}´ not present in vector model")
-                        self.log_cache["key"].append(key)
+            present_key = self.check_presence_vocab(key)
+            if not present_key and verbose and key not in self.log_cache["key"]:
+                logger.warning(f"key ´{key}´ not present in vector model")
+                self.log_cache["key"].append(key)
             for word in value:
-                if self.check_presence_vocab(word):
-                    verified_values.append(self.check_presence_vocab(word))
-                else:
-                    if verbose:
-                        if word not in self.log_cache["word"]:
-                            logger.warning(
-                                f"word ´{word}´ from key ´{key}´ not present in vector"
-                                " model"
-                            )
-                            self.log_cache["word"].append(word)
+                present_word = self.check_presence_vocab(word)
+                if present_word:
+                    verified_values.append(present_word)
+                elif verbose and word not in self.log_cache["word"]:
+                    logger.warning(
+                        f"word ´{word}´ from key ´{key}´ not present in vector model"
+                    )
+                    self.log_cache["word"].append(word)
             verified_data[key] = verified_values
             if not len(verified_values):
                 msg = (
                     f"None of the entries for key {key} are present in the vector"
                     " model. "
                 )
-                if self.check_presence_vocab(key):
-                    logger.warning(msg + f"Using {key} as word to expand over instead.")
-                    verified_data[key] = self.check_presence_vocab(key)
+                if present_key:
+                    logger.warning(
+                        msg + f"Using {present_key} as word to expand over instead."
+                    )
+                    verified_data[key] = present_key
                 else:
                     raise Exception(msg)
         self.data = deepcopy(verified_data)
-        self.original_data = deepcopy(self.data)
 
     def expand_concepts(self):
         """
@@ -233,63 +228,40 @@ class Conceptualizer:
         dictionary, and add those words to the values in the data dictionary
         """
 
+        self.original_data = deepcopy(self.data)
+
         for key in self.data:
-            remaining_keys = [rem_key for rem_key in self.data.keys() if rem_key != key]
-            remaining_values = [self.data[rem_key] for rem_key in remaining_keys]
-            remaining_values = list(itertools.chain.from_iterable(remaining_values))
-            if self.check_presence_vocab(key):
-                key_list = [self.check_presence_vocab(key)]
+            present_key = self.check_presence_vocab(key)
+            if present_key:
+                key_list = [present_key]
             else:
                 key_list = []
             similar = self.kv.most_similar(
                 positive=self.data[key] + key_list,
                 topn=self.topn_dict[key],
             )
-            similar = [sim_pair[0] for sim_pair in similar]
-            self.data[key] += similar
-            self.data[key] = list(set([word.lower() for word in self.data[key]]))
+            self.data[key] = list(
+                {self.check_presence_vocab(word) for word, _ratio in similar}
+            )
 
     def resolve_overlapping_concepts(self):
         """
         It removes words from the data that are in other concepts, and then removes words that are not closest to the
         centroid of the concept
         """
-        centroids = {}
-        for key in self.data:
-            if not self.check_presence_vocab(key):
-                words = self.data[key]
-                while len(words) != 1:
-                    words.remove(self.kv.doesnt_match(words))
-                centroids[key] = words[0]
-            else:
-                centroids[key] = key
-
-        for key_x in self.data:
-            for key_y in self.data:
-                if key_x != key_y:
-                    self.data[key_x] = [
-                        word
-                        for word in self.data[key_x]
-                        if word not in self.original_data[key_y]
-                    ]
-
         for key in self.data:
             self.data[key] = [
                 word
                 for word in self.data[key]
-                if centroids[key]
-                == self.kv.most_similar_to_given(word, list(centroids.values()))
+                if key == self.kv.most_similar_to_given(word, list(self.data.keys()))
             ]
-
-        self.centroids = centroids
 
     def infer_original_data(self):
         """
         It takes the original data and adds the new data to it, then removes the new data from the original data.
         """
         for key in self.data:
-            self.data[key] += self.original_data[key]
-            self.data[key] = list(set(self.data[key]))
+            self.data[key] = list(set(self.data[key] + self.original_data[key]))
 
         for key_x in self.data:
             for key_y in self.data:
@@ -299,8 +271,6 @@ class Conceptualizer:
                         for word in self.data[key_x]
                         if word not in self.original_data[key_y]
                     ]
-
-        self.verify_data(verbose=False)
 
     def lemmatize_concepts(self):
         """
@@ -347,7 +317,9 @@ class Conceptualizer:
                     words = [
                         "".join(
                             [
-                                token.lemma_ if token.lemma_ else token.text
+                                token.lemma_ + token.whitespace_
+                                if token.lemma_
+                                else token.text
                                 for token in doc
                             ]
                         )
@@ -357,9 +329,10 @@ class Conceptualizer:
                     words = input_dict[key]
                 for word in words:
                     if word != key:
-                        specific_match_rule = dict()
-                        specific_match_rule.update(self.match_rule)
-                        word_parts = re.split(f"[{self.word_delimiter}]+", word)
+                        specific_match_rule = {**self.match_rule}
+                        word_parts = re.split(
+                            f"[{re.escape(self.word_delimiter)}]+", word
+                        )
                         if len(word_parts) > 1:
                             operators = [" ", "-"]
                         else:
@@ -367,7 +340,7 @@ class Conceptualizer:
 
                         for op in operators:
                             if self.case_sensitive:
-                                specific_match_rule[self.match_key] = "{op}".join(
+                                specific_match_rule[self.match_key] = f"{op}".join(
                                     word_parts
                                 )
                             else:
@@ -404,7 +377,6 @@ class Conceptualizer:
                                 )
 
         add_patterns(self.data)
-        add_patterns(self.original_data)
         if self.json_path:
             with open(self.json_path, "w") as f:
                 json.dump(patterns, f)
@@ -453,16 +425,16 @@ class Conceptualizer:
                 if self.check_presence_vocab(ent.text):
                     entity = [ent.text]
                 else:
-                    entity = [
-                        self.check_presence_vocab(part)
-                        for part in ent.text.split()
-                        if self.check_presence_vocab(part)
-                    ]
-                concept = [
-                    self.check_presence_vocab(word)
-                    for word in self.data_upper[ent.label_]
-                    if self.check_presence_vocab(word)
-                ]
+                    entity = []
+                    for part in ent.text.split():
+                        present_part = self.check_presence_vocab(part)
+                        if present_part:
+                            entity.append(present_part)
+                concept = []
+                for word in self.data_upper[ent.label_]:
+                    present_word = self.check_presence_vocab(word)
+                    if present_word:
+                        concept.append(present_word)
                 if entity and concept:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
@@ -487,10 +459,17 @@ class Conceptualizer:
         doc.ents = ents
         return doc
 
-    def check_presence_vocab(self, word):
+    def _check_presence_vocab(self, word: str) -> str:
+        if word in self.kv:
+            return word
         for op in [" ", "-"]:
             check_word = word.replace(op, self.word_delimiter)
-            if not self.case_sensitive:
-                check_word = check_word.lower()
             if check_word in self.kv:
                 return check_word
+
+    def check_presence_vocab(self, word: str) -> str:
+        if not word.islower() and not self.case_sensitive:
+            present_word = self._check_presence_vocab(word.lower())
+            if present_word:
+                return present_word
+        return self._check_presence_vocab(word)
