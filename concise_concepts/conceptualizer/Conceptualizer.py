@@ -4,6 +4,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
+from typing import List
 
 import gensim.downloader
 from gensim.models import FastText, Word2Vec
@@ -484,7 +485,7 @@ class Conceptualizer:
                     concept.append(present_word)
             self.concept_data[ent_label] = concept
 
-    def _split_word(self, word: str) -> list[str]:
+    def _split_word(self, word: str) -> List[str]:
         """
         It splits a word into a list of subwords, using the word delimiter
 
