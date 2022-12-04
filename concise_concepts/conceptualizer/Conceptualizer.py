@@ -102,7 +102,6 @@ class Conceptualizer:
         else:
             self.match_key = "LEMMA"
         self.run()
-        self.data_upper = {k.upper(): v for k, v in data.items()}
 
     def run(self) -> None:
         self.check_validity_path()
@@ -117,9 +116,12 @@ class Conceptualizer:
             self.resolve_overlapping_concepts()
         self.infer_original_data()
         self.create_conceptual_patterns()
+        self.set_concept_dict()
 
         if not self.ent_score:
             del self.kv
+
+        self.data_upper = {k.upper(): v for k, v in self.data.items()}
 
     def check_validity_path(self) -> None:
         """
@@ -200,12 +202,12 @@ class Conceptualizer:
         verified_data: dict[str, list[str]] = dict()
         for key, value in self.data.items():
             verified_values = []
-            present_key = self.check_presence_vocab(key)
+            present_key = self._check_presence_vocab(key)
             if not present_key and verbose and key not in self.log_cache["key"]:
                 logger.warning(f"key ´{key}´ not present in vector model")
                 self.log_cache["key"].append(key)
             for word in value:
-                present_word = self.check_presence_vocab(word)
+                present_word = self._check_presence_vocab(word)
                 if present_word:
                     verified_values.append(present_word)
                 elif verbose and word not in self.log_cache["word"]:
@@ -237,7 +239,7 @@ class Conceptualizer:
         self.original_data = deepcopy(self.data)
 
         for key in self.data:
-            present_key = self.check_presence_vocab(key)
+            present_key = self._check_presence_vocab(key)
             if present_key:
                 key_list = [present_key]
             else:
@@ -247,7 +249,7 @@ class Conceptualizer:
                 topn=self.topn_dict[key],
             )
             self.data[key] = list(
-                {self.check_presence_vocab(word) for word, _ratio in similar}
+                {self._check_presence_vocab(word) for word, _ratio in similar}
             )
 
     def resolve_overlapping_concepts(self) -> None:
@@ -342,9 +344,7 @@ class Conceptualizer:
                 for word in words:
                     if word != key:
                         specific_match_rule = {**self.match_rule}
-                        word_parts = re.split(
-                            f"[{re.escape(self.word_delimiter)}]+", word
-                        )
+                        word_parts = self._split_word(word)
                         if len(word_parts) > 1:
                             operators = [" ", "-"]
                         else:
@@ -434,31 +434,34 @@ class Conceptualizer:
         ents = doc.ents
         for ent in ents:
             if ent.label_ in self.data_upper:
-                if self.check_presence_vocab(ent.text):
-                    entity = [ent.text]
+                ent_text = ent.text
+
+                # get word part representations
+                if self._check_presence_vocab(ent_text):
+                    entity = [self._check_presence_vocab(ent_text)]
                 else:
                     entity = []
-                    for part in ent.text.split():
-                        present_part = self.check_presence_vocab(part)
+                    for part in self._split_word(ent_text):
+                        present_part = self._check_presence_vocab(part)
                         if present_part:
                             entity.append(present_part)
-                concept = []
-                for word in self.data_upper[ent.label_]:
-                    present_word = self.check_presence_vocab(word)
-                    if present_word:
-                        concept.append(present_word)
+
+                # get concepts to match
+                concept = self.concept_data.get(ent.label_, None)
+
+                # compare set similarities
                 if entity and concept:
                     ent._.ent_score = self.kv.n_similarity(entity, concept)
                 else:
                     ent._.ent_score = 0
                     if self.verbose:
-                        if f"{ent.text}_{concept}" not in self.log_cache["key_word"]:
+                        if f"{ent_text}_{concept}" not in self.log_cache["key_word"]:
                             logger.warning(
                                 f"Entity ´{ent.text}´ and/or label ´{concept}´ not"
                                 " found in vector model. Nothing to compare to, so"
                                 " setting ent._.ent_score to 0."
                             )
-                            self.log_cache["key_word"].append(f"{ent.text}_{concept}")
+                            self.log_cache["key_word"].append(f"{ent_text}_{concept}")
             else:
                 ent._.ent_score = 0
                 if self.verbose:
@@ -471,23 +474,27 @@ class Conceptualizer:
         doc.ents = ents
         return doc
 
-    def _check_presence_vocab(self, word: str) -> str:
-        """
-        If the word is in the vocabulary, return the word. If not, replace spaces and dashes with the word delimiter and
-        check if the new word is in the vocabulary. If so, return the new word
+    def set_concept_dict(self):
+        self.concept_data = {k.upper(): v for k, v in self.data.items()}
+        for ent_label in self.concept_data:
+            concept = []
+            for word in self.concept_data[ent_label]:
+                present_word = self._check_presence_vocab(word)
+                if present_word:
+                    concept.append(present_word)
+            self.concept_data[ent_label] = concept
 
-        :param word: str - the word to check
+    def _split_word(self, word: str) -> list[str]:
+        """
+        It splits a word into a list of subwords, using the word delimiter
+
+        :param word: str
         :type word: str
-        :return: The word or the check_word
+        :return: A list of strings or any.
         """
-        if word in self.kv:
-            return word
-        for op in [" ", "-"]:
-            check_word = word.replace(op, self.word_delimiter)
-            if check_word in self.kv:
-                return check_word
+        return re.split(f"[{re.escape(self.word_delimiter)}]+", word)
 
-    def check_presence_vocab(self, word: str) -> str:
+    def _check_presence_vocab(self, word: str) -> str:
         """
         If the word is not lowercase and the case_sensitive flag is set to False, then check if the lowercase version of
         the word is in the vocabulary. If it is, return the lowercase version of the word. Otherwise, return the word
@@ -499,7 +506,19 @@ class Conceptualizer:
         being the word that was intended.
         """
         if not word.islower() and not self.case_sensitive:
-            present_word = self._check_presence_vocab(word.lower())
+            present_word = self.__check_presence_vocab(word.lower())
             if present_word:
                 return present_word
-        return self._check_presence_vocab(word)
+        return self.__check_presence_vocab(word)
+
+    def __check_presence_vocab(self, word: str) -> str:
+        """
+        If the word is in the vocabulary, return the word. If not, replace spaces and dashes with the word delimiter and
+        check if the new word is in the vocabulary. If so, return the new word
+
+        :param word: str - the word to check
+        :type word: str
+        :return: The word or the check_word
+        """
+        if word in self.kv:
+            return word
