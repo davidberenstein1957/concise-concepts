@@ -375,7 +375,7 @@ class Conceptualizer:
                             if self.include_compound_words:
                                 compound_rule = {
                                     "DEP": {"IN": ["amod", "compound"]},
-                                    "OP": "?",
+                                    "OP": "*",
                                 }
                                 patterns.append(
                                     {
