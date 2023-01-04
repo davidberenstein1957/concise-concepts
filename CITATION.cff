@@ -1,0 +1,8 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: David
+    given-names: Berenstein
+title: "Concise Concepts - an easy and intuitive approach to few-shot NER using most similar expansion over spaCy embeddings."
+version: 0.7.3
+date-released: 2022-12-31
