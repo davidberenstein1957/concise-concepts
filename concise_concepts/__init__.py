@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from typing import List, Union
 
+from gensim.models import FastText, Word2Vec
+from gensim.models.keyedvectors import KeyedVectors
 from spacy.language import Language
 
 from .conceptualizer import Conceptualizer
@@ -11,7 +13,7 @@ from .conceptualizer import Conceptualizer
     default_config={
         "data": None,
         "topn": [],
-        "model_path": None,
+        "model": None,
         "word_delimiter": "_",
         "ent_score": False,
         "exclude_pos": [
@@ -38,7 +40,7 @@ def make_concise_concepts(
     name: str,
     data: Union[dict, list],
     topn: list,
-    model_path: Union[str, None],
+    model: Union[str, FastText, Word2Vec, KeyedVectors],
     word_delimiter: str,
     ent_score: bool,
     exclude_pos: List[str],
@@ -53,7 +55,7 @@ def make_concise_concepts(
         name=name,
         data=data,
         topn=topn,
-        model_path=model_path,
+        model=model,
         word_delimiter=word_delimiter,
         ent_score=ent_score,
         exclude_pos=exclude_pos,

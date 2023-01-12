@@ -4,7 +4,7 @@ import logging
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import gensim.downloader
 from gensim.models import FastText, Word2Vec
@@ -22,7 +22,7 @@ class Conceptualizer:
         name: str,
         data: dict,
         topn: list = None,
-        model_path: str = None,
+        model: Union[str, FastText, KeyedVectors, Word2Vec] = None,
         word_delimiter: str = "_",
         ent_score: bool = False,
         exclude_pos: list = None,
@@ -68,7 +68,7 @@ class Conceptualizer:
         self.name = name
         self.nlp = nlp
         self.topn = topn
-        self.model_path = model_path
+        self.model = model
         self.match_rule = {}
         if exclude_pos is None:
             exclude_pos = [
@@ -161,24 +161,34 @@ class Conceptualizer:
         If it's not a valid path, then we raise an exception.
         If the model_path is None, then we load the model from the internal embeddings of the spacy model
         """
-        if self.model_path:
-            available_models = gensim.downloader.info()["models"]
-            if self.model_path in available_models:
-                self.kv = gensim.downloader.load(self.model_path)
-            else:
-                try:
-                    self.kv = FastText.load(self.model_path).wv
-                except Exception as e1:
+        if isinstance(self.model, str):
+            if self.model:
+                available_models = gensim.downloader.info()["models"]
+                if self.model in available_models:
+                    self.kv = gensim.downloader.load(self.model)
+                else:
                     try:
-                        self.kv = Word2Vec.load(self.model_path).wv
-                    except Exception as e2:
+                        self.kv = FastText.load(self.model).wv
+                    except Exception as e1:
                         try:
-                            self.kv = KeyedVectors.load(self.model_path)
-                        except Exception as e3:
-                            raise Exception(
-                                "Not a valid gensim model. FastText, Word2Vec,"
-                                f" KeyedVectors.\n {e1}\n {e2}\n {e3}"
-                            )
+                            self.kv = Word2Vec.load(self.model).wv
+                        except Exception as e2:
+                            try:
+                                self.kv = KeyedVectors.load(self.model)
+                            except Exception as e3:
+                                try:
+                                    self.kv = KeyedVectors.load_word2vec_format(
+                                        self.model, binary=True
+                                    )
+                                except Exception as e4:
+                                    raise Exception(
+                                        "Not a valid gensim model. FastText, Word2Vec,"
+                                        f" KeyedVectors.\n {e1}\n {e2}\n {e3}\n {e4}"
+                                    )
+        elif isinstance(self.model, (FastText, Word2Vec)):
+            self.kv = self.model.wv
+        elif isinstance(self.model, KeyedVectors):
+            self.kv = self.model
         else:
             wordList = []
             vectorList = []
