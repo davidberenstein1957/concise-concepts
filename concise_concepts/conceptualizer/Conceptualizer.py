@@ -58,7 +58,7 @@ class Conceptualizer:
         """
         assert data, ValueError("You must provide a dictionary of words to match")
         self.verbose = verbose
-        self.log_cache = {"key": list(), "word": list(), "word_key": list()}
+        self.log_cache = {"key": list(), "word": list(), "key_word": list()}
         if Span.has_extension("ent_score"):
             Span.remove_extension("ent_score")
         if ent_score:
