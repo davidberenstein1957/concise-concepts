@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Union
 
 import gensim.downloader
-import spaczz
+import spaczz  # noqa: F401
 from gensim.models import FastText, Word2Vec
 from gensim.models.keyedvectors import KeyedVectors
 from spacy import Language, util
