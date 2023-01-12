@@ -27,6 +27,7 @@ python = ">=3.8,<3.12"
 spacy = "^3"
 scipy = "^1.7"
 gensim = "^4"
+spaczz = "^0.5.4"
 
 
 [tool.poetry.group.dev.dependencies]

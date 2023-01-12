@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Union
 
 import gensim.downloader
+import spaczz
 from gensim.models import FastText, Word2Vec
 from gensim.models.keyedvectors import KeyedVectors
 from spacy import Language, util
@@ -16,6 +17,7 @@ from spacy.tokens import Doc, Span
 logger = logging.getLogger(__name__)
 
 
+# > The Conceptualizer class is a wrapper for the ConceptNet API
 class Conceptualizer:
     def __init__(
         self,
@@ -29,6 +31,7 @@ class Conceptualizer:
         exclude_dep: list = None,
         include_compound_words: bool = False,
         case_sensitive: bool = False,
+        fuzzy: bool = False,
         json_path: str = "./matching_patterns.json",
         verbose: bool = True,
         name: str = "concise_concepts",
@@ -67,6 +70,7 @@ class Conceptualizer:
         self.data = data
         self.name = name
         self.nlp = nlp
+        self.fuzzy = fuzzy
         self.topn = topn
         self.model = model
         self.match_rule = {}
@@ -81,14 +85,16 @@ class Conceptualizer:
                 "No lemmatizer found in spacy pipeline. Consider adding it for matching"
                 " on LEMMA instead of exact text."
             )
-            self.match_key = "ORTH"
+            self.match_key = "TEXT"
         else:
             self.match_key = "LEMMA"
-        if "entity_ruler" in self.nlp.component_names:
-            logger.warning(
-                "Entity Ruler already exists in the pipeline. Removing old rulers"
-            )
-            self.nlp.remove_pipe("entity_ruler")
+
+        for ruler in ["entity_ruler", "spaczz_ruler"]:
+            if ruler in self.nlp.component_names:
+                logger.warning(
+                    f"{ruler} already exists in the pipeline. Removing old rulers"
+                )
+                self.nlp.remove_pipe(ruler)
         self.run()
 
     def set_exclude_dep(self, exclude_dep: list):
@@ -346,72 +352,91 @@ class Conceptualizer:
             :type input_dict: dict
             """
             for key in input_dict:
-                if self.match_key == "LEMMA":
-                    words = [
-                        "".join(
-                            [
-                                token.lemma_ + token.whitespace_
-                                if token.lemma_
-                                else token.text
-                                for token in doc
-                            ]
-                        )
-                        for doc in self.nlp.pipe(input_dict[key])
-                    ]
-                else:
-                    words = input_dict[key]
+                words = input_dict[key]
                 for word in words:
                     if word != key:
-                        specific_match_rule = {**self.match_rule}
                         word_parts = self._split_word(word)
-                        if len(word_parts) > 1:
-                            operators = [" ", "-"]
-                        else:
-                            operators = [""]
-
-                        for op in operators:
-                            if self.case_sensitive:
-                                specific_match_rule[self.match_key] = f"{op}".join(
-                                    word_parts
-                                )
-                            else:
-                                specific_match_rule[self.match_key] = {
-                                    "regex": r"(?i)"
-                                    + re.escape(f"{op}".join(word_parts))
+                        op_pattern = {
+                            "REGEX": "|".join([" ", "-", "_", "/"]),
+                            "OP": "*",
+                        }
+                        partial_pattern_parts = []
+                        lemma_pattern_parts = []
+                        for partial_pattern in word_parts:
+                            word_part = partial_pattern
+                            if self.fuzzy:
+                                partial_pattern = {
+                                    "FUZZY": word_part,
                                 }
+                            partial_pattern = {"TEXT": partial_pattern}
+                            if self.match_key == "LEMMA":
+                                lemma_pattern_parts.append({"LEMMA": word_part})
+                                lemma_pattern_parts.append(op_pattern)
+                            partial_pattern_parts.append(partial_pattern)
+                            partial_pattern_parts.append(op_pattern)
 
-                            patterns.append(
+                        pattern = {
+                            "label": key.upper(),
+                            "pattern": partial_pattern_parts[:-1],
+                            "id": f"{word}_individual",
+                        }
+
+                        # add fuzzy matching formatting if fuzzy matching is enabled
+                        patterns.append(pattern)
+
+                        if self.include_compound_words:
+                            compound_rule = [
                                 {
-                                    "label": key.upper(),
-                                    "pattern": [
-                                        specific_match_rule,
-                                    ],
-                                    "id": f"{word}_{op}_individual",
-                                }
-                            )
-
-                            if self.include_compound_words:
-                                compound_rule = {
                                     "DEP": {"IN": ["amod", "compound"]},
                                     "OP": "*",
                                 }
+                            ]
+                            patterns.append(
+                                {
+                                    "label": key.upper(),
+                                    "pattern": compound_rule
+                                    + partial_pattern_parts[:-1]
+                                    + compound_rule,
+                                    "id": f"{word}_compound",
+                                }
+                            )
+                            if lemma_pattern_parts:
+                                lemma_pattern = {
+                                    "label": key.upper(),
+                                    "pattern": lemma_pattern_parts[:-1],
+                                    "id": f"{word}_lemma_individual",
+                                }
+                                patterns.append(lemma_pattern)
                                 patterns.append(
                                     {
                                         "label": key.upper(),
-                                        "pattern": [
-                                            compound_rule,
-                                            specific_match_rule,
-                                            compound_rule,
-                                        ],
-                                        "id": f"{word}_{op}_compound",
+                                        "pattern": compound_rule
+                                        + lemma_pattern_parts[:-1]
+                                        + compound_rule,
+                                        "id": f"{word}_compound",
                                     }
                                 )
 
         add_patterns(self.data)
+
+        # Add spaczz entity ruler if fuzzy
+        if self.fuzzy:
+            ruler_name = "spaczz_ruler"
+        else:
+            ruler_name = "entity_ruler"
+
+        config = {"overwrite_ents": True}
+        if self.case_sensitive:
+            config["phrase_matcher_attr"] = "LOWER"
+        self.ruler = self.nlp.add_pipe(ruler_name, config=config)
+
+        if self.fuzzy:
+            for pattern in patterns:
+                pattern["type"] = "token"
         if self.json_path:
             with open(self.json_path, "w") as f:
                 json.dump(patterns, f)
-        self.ruler = self.nlp.add_pipe("entity_ruler", config={"overwrite_ents": True})
+
         self.ruler.add_patterns(patterns)
 
     def __call__(self, doc: Doc) -> Doc:
@@ -534,6 +559,7 @@ class Conceptualizer:
         :return: The word itself if it is present in the vocabulary, otherwise the word with the highest probability of
         being the word that was intended.
         """
+        word = word.replace(" ", "_")
         if not word.islower() and not self.case_sensitive:
             present_word = self.__check_presence_vocab(word.lower())
             if present_word:

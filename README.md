@@ -29,6 +29,8 @@ pip install concise-concepts
 
 # Quickstart
 
+Take a look at the [configuration section](#configuration) for more info.
+
 ## Spacy Pipeline Component
 
 ```python
@@ -109,7 +111,7 @@ conceptualizer = Conceptualizer(nlp, data, model)
 conceptualizer.nlp("I have a headache and a fever.").ents
 ```
 
-# Features
+# Configuration
 ## Matching Pattern Rules
 A general introduction about the usage of matching patterns in the [usage section](#usage).
 ### Customizing Matching Pattern Rules
@@ -124,9 +126,23 @@ Even though the baseline parameters provide a decent result, the construction of
 ### Analyze Matching Pattern Rules
 To motivate actually looking at the data and support interpretability, the matching patterns that have been generated are stored as `./main_patterns.json`. This behavior can be changed by using the `json_path` variable via the config passed to the spaCy pipeline.
 
+## Fuzzy matching using `spaczz`
+
+ - `fuzzy`: A boolean value that determines whether to use fuzzy matching
+
+```python
+data = {
+    "fruit": ["apple", "pear", "orange"],
+    "vegetable": ["broccoli", "spinach", "tomato"],
+    "meat": ["beef", "pork", "fish", "lamb"]
+}
+
+nlp.add_pipe("concise_concepts", config={"data": data, "fuzzy": True})
+```
+
 ## Most Similar Word Expansion
 
-Use a specific number of words to expand over.
+- `topn`: Use a specific number of words to expand over.
 
 ```python
 data = {
@@ -144,7 +160,8 @@ nlp.add_pipe("concise_concepts", config={"data": data, "topn": topn})
 
 ## Entity Scoring
 
-Use embdding based word similarity to score entities
+- `ent_score`: Use embedding based word similarity to score entities against their groups
+
 ```python
 import spacy
 import concise_concepts
@@ -167,7 +184,9 @@ print([(ent.text, ent.label_, ent._.ent_score) for ent in doc.ents])
 ```
 
 ## Custom Embedding Models
-Use `gensim.Word2vec` `gensim.FastText` or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path.
+
+- `model_path`: Use `gensim.Word2vec` `gensim.FastText` or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path.
+
 ```python
 data = {
     "fruit": ["apple", "pear", "orange"],

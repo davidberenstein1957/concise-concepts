@@ -62,3 +62,17 @@ def test_standalone_gensim():
     print(list(conceptualizer.nlp.pipe(["I have a headache and a fever."]))[0].ents)
     print(conceptualizer("I have a headache and a fever.").ents)
     print(conceptualizer.nlp("I have a headache and a fever.").ents)
+
+
+def test_spaczz():
+    # -*- coding: utf-8 -*-
+    import spacy
+
+    import concise_concepts  # noqa: F401
+    from concise_concepts.examples.data import data, text, text_fuzzy
+
+    nlp = spacy.load("en_core_web_md")
+
+    nlp.add_pipe("concise_concepts", config={"data": data, "fuzzy": True})
+
+    assert len(nlp(text).ents) == len(nlp(text_fuzzy).ents)
