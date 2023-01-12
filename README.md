@@ -29,6 +29,8 @@ pip install concise-concepts
 
 # Quickstart
 
+## Spacy Pipeline Component
+
 ```python
 import spacy
 from spacy import displacy
@@ -79,6 +81,33 @@ doc.ents = ents
 displacy.render(doc, style="ent", options=options)
 ```
 ![](https://raw.githubusercontent.com/Pandora-Intelligence/concise-concepts/master/img/example.png)
+
+## Standalone
+
+This might be useful when iterating over few_shot training data when not wanting to reload larger models continuously.\
+
+```python
+import gensim
+import spacy
+
+from concise_concepts import Conceptualizer
+
+model = gensim.downloader.load("fasttext-wiki-news-subwords-300")
+nlp = spacy.load("en_core_web_sm")
+data = {
+    "disease": ["cancer", "diabetes", "heart disease", "influenza", "pneumonia"],
+    "symptom": ["headache", "fever", "cough", "nausea", "vomiting", "diarrhea"],
+}
+conceptualizer = Conceptualizer(nlp, data, model)
+conceptualizer.nlp("I have a headache and a fever.").ents
+
+data = {
+    "disease": ["cancer", "diabetes"],
+    "symptom": ["headache", "fever"],
+}
+conceptualizer = Conceptualizer(nlp, data, model)
+conceptualizer.nlp("I have a headache and a fever.").ents
+```
 
 # Features
 ## Matching Pattern Rules

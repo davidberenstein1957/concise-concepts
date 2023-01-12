@@ -2,6 +2,7 @@
 import json
 import logging
 import re
+import types
 from copy import deepcopy
 from pathlib import Path
 from typing import List, Union
@@ -19,10 +20,9 @@ class Conceptualizer:
     def __init__(
         self,
         nlp: Language,
-        name: str,
-        data: dict,
-        topn: list = None,
+        data: dict = {},
         model: Union[str, FastText, KeyedVectors, Word2Vec] = None,
+        topn: list = None,
         word_delimiter: str = "_",
         ent_score: bool = False,
         exclude_pos: list = None,
@@ -31,6 +31,7 @@ class Conceptualizer:
         case_sensitive: bool = False,
         json_path: str = "./matching_patterns.json",
         verbose: bool = True,
+        name: str = "concise_concepts",
     ):
         """
         The function takes in a dictionary of words and their synonyms, and then creates a new dictionary of words and
@@ -55,6 +56,7 @@ class Conceptualizer:
             if the entity is "New York", it will also include "New York City" as an entity, defaults to False (optional)
         :param case_sensitive: Whether to match the case of the words in the text, defaults to False (optional)
         """
+        assert data, ValueError("You must provide a dictionary of words to match")
         self.verbose = verbose
         self.log_cache = {"key": list(), "word": list(), "word_key": list()}
         if Span.has_extension("ent_score"):
@@ -70,6 +72,34 @@ class Conceptualizer:
         self.topn = topn
         self.model = model
         self.match_rule = {}
+        self.set_exclude_pos(exclude_pos)
+        self.set_exclude_dep(exclude_dep)
+        self.json_path = json_path
+        self.include_compound_words = include_compound_words
+        self.case_sensitive = case_sensitive
+        self.word_delimiter = word_delimiter
+        if "lemmatizer" not in self.nlp.component_names:
+            logger.warning(
+                "No lemmatizer found in spacy pipeline. Consider adding it for matching"
+                " on LEMMA instead of exact text."
+            )
+            self.match_key = "ORTH"
+        else:
+            self.match_key = "LEMMA"
+        if "entity_ruler" in self.nlp.component_names:
+            logger.warning(
+                "Entity Ruler already exists in the pipeline. Removing old rulers"
+            )
+            self.nlp.remove_pipe("entity_ruler")
+        self.run()
+
+    def set_exclude_dep(self, exclude_dep: list):
+        if exclude_dep is None:
+            exclude_dep = []
+        if exclude_dep:
+            self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
+
+    def set_exclude_pos(self, exclude_pos: list):
         if exclude_pos is None:
             exclude_pos = [
                 "VERB",
@@ -85,24 +115,6 @@ class Conceptualizer:
             ]
         if exclude_pos:
             self.match_rule["POS"] = {"NOT_IN": exclude_pos}
-        if exclude_dep is None:
-            exclude_dep = []
-        if exclude_dep:
-            self.match_rule["DEP"] = {"NOT_IN": exclude_dep}
-        self.json_path = json_path
-        self.check_validity_path()
-        self.include_compound_words = include_compound_words
-        self.case_sensitive = case_sensitive
-        self.word_delimiter = word_delimiter
-        if "lemmatizer" not in self.nlp.component_names:
-            logger.warning(
-                "No lemmatizer found in spacy pipeline. Consider adding it for matching"
-                " on LEMMA instead of exact text."
-            )
-            self.match_key = "ORTH"
-        else:
-            self.match_key = "LEMMA"
-        self.run()
 
     def run(self) -> None:
         self.check_validity_path()
@@ -146,7 +158,7 @@ class Conceptualizer:
         If the user doesn't specify a topn value for each class,
         then the topn value for each class is set to 100
         """
-        if not self.topn:
+        if self.topn is None:
             self.topn_dict = {key: 100 for key in self.data}
         else:
             num_classes = len(self.data)
@@ -413,8 +425,12 @@ class Conceptualizer:
         :param doc: Doc
         :type doc: Doc
         """
-        if self.ent_score:
-            doc = self.assign_score_to_entities(doc)
+        if isinstance(doc, str):
+            doc = self.nlp(doc)
+        elif isinstance(doc, Doc):
+            if self.ent_score:
+                doc = self.assign_score_to_entities(doc)
+
         return doc
 
     def pipe(self, stream, batch_size=128) -> Doc:
@@ -425,6 +441,12 @@ class Conceptualizer:
         :param stream: a generator of documents
         :param batch_size: The number of documents to be processed at a time, defaults to 128 (optional)
         """
+        if isinstance(stream, str):
+            stream = [stream]
+
+        if not isinstance(stream, types.GeneratorType):
+            stream = self.nlp.pipe(stream, batch_size=batch_size)
+
         for docs in util.minibatch(stream, size=batch_size):
             for doc in docs:
                 if self.ent_score:

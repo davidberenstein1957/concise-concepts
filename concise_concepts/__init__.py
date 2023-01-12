@@ -12,8 +12,8 @@ from .conceptualizer import Conceptualizer
     "concise_concepts",
     default_config={
         "data": None,
-        "topn": [],
-        "model": None,
+        "topn": None,
+        "model_path": None,
         "word_delimiter": "_",
         "ent_score": False,
         "exclude_pos": [
@@ -39,8 +39,8 @@ def make_concise_concepts(
     nlp: Language,
     name: str,
     data: Union[dict, list],
-    topn: list,
-    model: Union[str, FastText, Word2Vec, KeyedVectors],
+    topn: Union[list, None],
+    model_path: Union[str, FastText, Word2Vec, KeyedVectors, None],
     word_delimiter: str,
     ent_score: bool,
     exclude_pos: List[str],
@@ -52,10 +52,9 @@ def make_concise_concepts(
 ):
     return Conceptualizer(
         nlp=nlp,
-        name=name,
         data=data,
         topn=topn,
-        model=model,
+        model=model_path,
         word_delimiter=word_delimiter,
         ent_score=ent_score,
         exclude_pos=exclude_pos,
@@ -64,4 +63,5 @@ def make_concise_concepts(
         case_sensitive=case_sensitive,
         json_path=json_path,
         verbose=verbose,
+        name=name,
     )
