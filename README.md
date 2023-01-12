@@ -33,6 +33,8 @@ Take a look at the [configuration section](#configuration) for more info.
 
 ## Spacy Pipeline Component
 
+Note that, [custom embedding models](#custom-embedding-models) are passed via `model_path`.
+
 ```python
 import spacy
 from spacy import displacy
@@ -86,7 +88,8 @@ displacy.render(doc, style="ent", options=options)
 
 ## Standalone
 
-This might be useful when iterating over few_shot training data when not wanting to reload larger models continuously.\
+This might be useful when iterating over few_shot training data when not wanting to reload larger models continuously.
+Note that, [custom embedding models](#custom-embedding-models) are passed via `model`.
 
 ```python
 import gensim
@@ -125,6 +128,7 @@ Even though the baseline parameters provide a decent result, the construction of
 
 ### Analyze Matching Pattern Rules
 To motivate actually looking at the data and support interpretability, the matching patterns that have been generated are stored as `./main_patterns.json`. This behavior can be changed by using the `json_path` variable via the config passed to the spaCy pipeline.
+
 
 ## Fuzzy matching using `spaczz`
 
@@ -185,7 +189,8 @@ print([(ent.text, ent.label_, ent._.ent_score) for ent in doc.ents])
 
 ## Custom Embedding Models
 
-- `model_path`: Use `gensim.Word2vec` `gensim.FastText` or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path.
+- `model_path`: Use `sense2vec.Sense2Vec`, `gensim.Word2vec` `gensim.FastText`, or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path.
+- `model`: within [standalone usage](#standalone), it is possible to pass these models directly.
 
 ```python
 data = {
