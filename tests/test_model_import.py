@@ -76,3 +76,36 @@ def test_spaczz():
     nlp.add_pipe("concise_concepts", config={"data": data, "fuzzy": True})
 
     assert len(nlp(text).ents) == len(nlp(text_fuzzy).ents)
+
+
+def test_sense2vec():
+    # -*- coding: utf-8 -*-
+    import requests
+    import spacy
+    from sense2vec import Sense2Vec
+
+    import concise_concepts  # noqa: F401
+    from concise_concepts.examples.data import data, text, text_fuzzy
+
+    model_path = "s2v_old"
+    # download .tar.gz file an URL
+    # and extract it to a folder
+    url = "https://github.com/explosion/sense2vec/releases/download/v1.0.0/s2v_reddit_2015_md.tar.gz"
+    r = requests.get(url, allow_redirects=True)
+    open("s2v_reddit_2015_md.tar.gz", "wb").write(r.content)
+    # extract tar.gz file
+    filename = "s2v_reddit_2015_md.tar.gz"
+    import tarfile
+
+    tar = tarfile.open(filename, "r:gz")
+    tar.extractall()
+    tar.close()
+
+    import concise_concepts  # noqa: F401
+    from concise_concepts.examples.data import data, text
+
+    nlp = spacy.load("en_core_web_md")
+
+    nlp.add_pipe("concise_concepts", config={"data": data, "model_path": model_path})
+
+    assert len(nlp(text).ents)

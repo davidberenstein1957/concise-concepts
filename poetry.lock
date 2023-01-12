@@ -967,6 +967,21 @@ doc = ["matplotlib (>2)", "numpydoc", "pydata-sphinx-theme (==0.9.0)", "sphinx (
 test = ["asv", "gmpy2", "mpmath", "pooch", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
+name = "sense2vec"
+version = "2.0.1"
+description = "Contextually-keyed word vectors"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+catalogue = ">=2.0.1,<2.1.0"
+numpy = ">=1.15.0"
+spacy = ">=3.0.0,<4.0.0"
+srsly = ">=2.4.0,<3.0.0"
+wasabi = ">=0.8.1,<1.2.0"
+
+[[package]]
 name = "setuptools"
 version = "65.7.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
@@ -1304,7 +1319,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.12"
-content-hash = "42df67353510323c3c33541ef5c2665054edea163398cec52acc747654a87ae6"
+content-hash = "52f2e4cda0b6fb1b41a2713a5b05eda0079041077018ddf52c4f9bdb482f2a68"
 
 [metadata.files]
 appnope = [
@@ -2250,6 +2265,10 @@ scipy = [
     {file = "scipy-1.10.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0490dc499fe23e4be35b8b6dd1e60a4a34f0c4adb30ac671e6332446b3cbbb5a"},
     {file = "scipy-1.10.0-cp39-cp39-win_amd64.whl", hash = "sha256:954ff69d2d1bf666b794c1d7216e0a746c9d9289096a64ab3355a17c7c59db54"},
     {file = "scipy-1.10.0.tar.gz", hash = "sha256:c8b3cbc636a87a89b770c6afc999baa6bcbb01691b5ccbbc1b1791c7c0a07540"},
+]
+sense2vec = [
+    {file = "sense2vec-2.0.1-py2.py3-none-any.whl", hash = "sha256:0c50948216371d0c86506b63652534e509accd5d9029b391843bd3c70299a755"},
+    {file = "sense2vec-2.0.1.tar.gz", hash = "sha256:8833c098fd8aa52ebc7a44ceb850d7e962fb89092e25e528a120383a599f2ebb"},
 ]
 setuptools = [
     {file = "setuptools-65.7.0-py3-none-any.whl", hash = "sha256:8ab4f1dbf2b4a65f7eec5ad0c620e84c34111a68d3349833494b9088212214dd"},

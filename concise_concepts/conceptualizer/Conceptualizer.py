@@ -9,15 +9,39 @@ from typing import List, Union
 
 import gensim.downloader
 import spaczz  # noqa: F401
+from gensim import matutils  # utility fnc for pickling, common scipy operations etc
 from gensim.models import FastText, Word2Vec
 from gensim.models.keyedvectors import KeyedVectors
+from numpy import argmax, dot
+from sense2vec import Sense2Vec
 from spacy import Language, util
 from spacy.tokens import Doc, Span
 
 logger = logging.getLogger(__name__)
 
+POS_LIST = [
+    "ADJ",
+    "ADP",
+    "ADV",
+    "AUX",
+    "CONJ",
+    "CCONJ",
+    "DET",
+    "INTJ",
+    "NOUN",
+    "NUM",
+    "PART",
+    "PRON",
+    "PROPN",
+    "PUNCT",
+    "SCONJ",
+    "SYM",
+    "VERB",
+    "X",
+    "SPACE",
+]
 
-# > The Conceptualizer class is a wrapper for the ConceptNet API
+
 class Conceptualizer:
     def __init__(
         self,
@@ -119,12 +143,15 @@ class Conceptualizer:
             ]
         if exclude_pos:
             self.match_rule["POS"] = {"NOT_IN": exclude_pos}
+            self.exclude_pos = exclude_pos
+        else:
+            self.exclude_pos = []
 
     def run(self) -> None:
         self.check_validity_path()
-        self.determine_topn()
         self.set_gensim_model()
         self.verify_data(self.verbose)
+        self.determine_topn()
         self.expand_concepts()
         # settle words around overlapping concepts
         for _ in range(5):
@@ -184,23 +211,27 @@ class Conceptualizer:
                     self.kv = gensim.downloader.load(self.model)
                 else:
                     try:
-                        self.kv = FastText.load(self.model).wv
-                    except Exception as e1:
+                        self.kv = Sense2Vec().from_disk(self.model)
+                    except Exception as e0:
                         try:
-                            self.kv = Word2Vec.load(self.model).wv
-                        except Exception as e2:
+                            self.kv = FastText.load(self.model).wv
+                        except Exception as e1:
                             try:
-                                self.kv = KeyedVectors.load(self.model)
-                            except Exception as e3:
+                                self.kv = Word2Vec.load(self.model).wv
+                            except Exception as e2:
                                 try:
-                                    self.kv = KeyedVectors.load_word2vec_format(
-                                        self.model, binary=True
-                                    )
-                                except Exception as e4:
-                                    raise Exception(
-                                        "Not a valid gensim model. FastText, Word2Vec,"
-                                        f" KeyedVectors.\n {e1}\n {e2}\n {e3}\n {e4}"
-                                    )
+                                    self.kv = KeyedVectors.load(self.model)
+                                except Exception as e3:
+                                    try:
+                                        self.kv = KeyedVectors.load_word2vec_format(
+                                            self.model, binary=True
+                                        )
+                                    except Exception as e4:
+                                        raise Exception(
+                                            "Not a valid model.Sense2Vec, FastText,"
+                                            f" Word2Vec, KeyedVectors.\n {e0}\n {e1}\n"
+                                            f" {e2}\n {e3}\n {e4}"
+                                        )
         elif isinstance(self.model, (FastText, Word2Vec)):
             self.kv = self.model.wv
         elif isinstance(self.model, KeyedVectors):
@@ -230,6 +261,8 @@ class Conceptualizer:
         for key, value in self.data.items():
             verified_values = []
             present_key = self._check_presence_vocab(key)
+            if present_key:
+                key = present_key
             if not present_key and verbose and key not in self.log_cache["key"]:
                 logger.warning(f"key ´{key}´ not present in vector model")
                 self.log_cache["key"].append(key)
@@ -269,13 +302,17 @@ class Conceptualizer:
                 key_list = [present_key]
             else:
                 key_list = []
-            similar = self.kv.most_similar(
-                positive=self.data[key] + key_list,
-                topn=self.topn_dict[key],
-            )
-            self.data[key] = list(
-                {self._check_presence_vocab(word) for word, _ratio in similar}
-            )
+            if isinstance(self.kv, Sense2Vec):
+                similar = self.kv.most_similar(
+                    self.data[key] + key_list,
+                    n=self.topn_dict[key],
+                )
+            else:
+                similar = self.kv.most_similar(
+                    self.data[key] + key_list,
+                    topn=self.topn_dict[key],
+                )
+            self.data[key] = list({word for word, _ratio in similar})
 
     def resolve_overlapping_concepts(self) -> None:
         """
@@ -286,8 +323,30 @@ class Conceptualizer:
             self.data[key] = [
                 word
                 for word in self.data[key]
-                if key == self.kv.most_similar_to_given(word, list(self.data.keys()))
+                if key == self.most_similar_to_given(word, list(self.data.keys()))
             ]
+
+    def most_similar_to_given(self, key1, keys_list):
+        """Get the `key` from `keys_list` most similar to `key1`."""
+        return keys_list[argmax([self.similarity(key1, key) for key in keys_list])]
+
+    def similarity(self, w1, w2):
+        """Compute cosine similarity between two keys.
+
+        Parameters
+        ----------
+        w1 : str
+            Input key.
+        w2 : str
+            Input key.
+
+        Returns
+        -------
+        float
+            Cosine similarity between `w1` and `w2`.
+
+        """
+        return dot(matutils.unitvec(self.kv[w1]), matutils.unitvec(self.kv[w2]))
 
     def infer_original_data(self) -> None:
         """
@@ -342,7 +401,8 @@ class Conceptualizer:
 
         The pattern is
         """
-        patterns = []
+        lemma_patterns = []
+        fuzzy_patterns = []
 
         def add_patterns(input_dict: dict) -> None:
             """
@@ -351,14 +411,22 @@ class Conceptualizer:
             :param input_dict: a dictionary
             :type input_dict: dict
             """
+
+            if isinstance(self.kv, Sense2Vec):
+                input_dict = {
+                    key.split("|")[0]: [word.split("|")[0] for word in value]
+                    for key, value in input_dict.items()
+                }
             for key in input_dict:
                 words = input_dict[key]
                 for word in words:
                     if word != key:
                         word_parts = self._split_word(word)
                         op_pattern = {
-                            "REGEX": "|".join([" ", "-", "_", "/"]),
-                            "OP": "*",
+                            "TEXT": {
+                                "REGEX": "|".join([" ", "-", "_", "/"]),
+                                "OP": "*",
+                            }
                         }
                         partial_pattern_parts = []
                         lemma_pattern_parts = []
@@ -369,9 +437,8 @@ class Conceptualizer:
                                     "FUZZY": word_part,
                                 }
                             partial_pattern = {"TEXT": partial_pattern}
-                            if self.match_key == "LEMMA":
-                                lemma_pattern_parts.append({"LEMMA": word_part})
-                                lemma_pattern_parts.append(op_pattern)
+                            lemma_pattern_parts.append({self.match_key: word_part})
+                            lemma_pattern_parts.append(op_pattern)
                             partial_pattern_parts.append(partial_pattern)
                             partial_pattern_parts.append(op_pattern)
 
@@ -382,7 +449,16 @@ class Conceptualizer:
                         }
 
                         # add fuzzy matching formatting if fuzzy matching is enabled
-                        patterns.append(pattern)
+                        fuzzy_patterns.append(pattern)
+
+                        # add lemmma matching
+                        if lemma_pattern_parts:
+                            lemma_pattern = {
+                                "label": key.upper(),
+                                "pattern": lemma_pattern_parts[:-1],
+                                "id": f"{word}_lemma_individual",
+                            }
+                            lemma_patterns.append(lemma_pattern)
 
                         if self.include_compound_words:
                             compound_rule = [
@@ -391,7 +467,7 @@ class Conceptualizer:
                                     "OP": "*",
                                 }
                             ]
-                            patterns.append(
+                            partial_pattern_parts.append(
                                 {
                                     "label": key.upper(),
                                     "pattern": compound_rule
@@ -401,43 +477,35 @@ class Conceptualizer:
                                 }
                             )
                             if lemma_pattern_parts:
-                                lemma_pattern = {
-                                    "label": key.upper(),
-                                    "pattern": lemma_pattern_parts[:-1],
-                                    "id": f"{word}_lemma_individual",
-                                }
-                                patterns.append(lemma_pattern)
-                                patterns.append(
+                                lemma_patterns.append(
                                     {
                                         "label": key.upper(),
                                         "pattern": compound_rule
                                         + lemma_pattern_parts[:-1]
                                         + compound_rule,
-                                        "id": f"{word}_compound",
+                                        "id": f"{word}_lemma_compound",
                                     }
                                 )
 
         add_patterns(self.data)
 
-        # Add spaczz entity ruler if fuzzy
-        if self.fuzzy:
-            ruler_name = "spaczz_ruler"
-        else:
-            ruler_name = "entity_ruler"
+        if self.json_path:
+            with open(self.json_path, "w") as f:
+                json.dump(lemma_patterns + fuzzy_patterns, f)
 
         config = {"overwrite_ents": True}
         if self.case_sensitive:
             config["phrase_matcher_attr"] = "LOWER"
-        self.ruler = self.nlp.add_pipe(ruler_name, config=config)
 
+        self.ruler = self.nlp.add_pipe("entity_ruler", config=config)
+        self.ruler.add_patterns(lemma_patterns)
+
+        # Add spaczz entity ruler if fuzzy
         if self.fuzzy:
-            for pattern in patterns:
+            for pattern in fuzzy_patterns:
                 pattern["type"] = "token"
-        if self.json_path:
-            with open(self.json_path, "w") as f:
-                json.dump(patterns, f)
-
-        self.ruler.add_patterns(patterns)
+            self.fuzzy_ruler = self.nlp.add_pipe("spaczz_ruler", config=config)
+            self.fuzzy_ruler.add_patterns(fuzzy_patterns)
 
     def __call__(self, doc: Doc) -> Doc:
         """
@@ -575,5 +643,8 @@ class Conceptualizer:
         :type word: str
         :return: The word or the check_word
         """
-        if word in self.kv:
-            return word
+        if isinstance(self.kv, Sense2Vec):
+            return self.kv.get_best_sense(word, (set(POS_LIST) - set(self.exclude_pos)))
+        else:
+            if word in self.kv:
+                return word

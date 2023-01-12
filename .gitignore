@@ -137,3 +137,4 @@ dmypy.json
 *.model.*
 *.json
 test.py
+s2v_old
