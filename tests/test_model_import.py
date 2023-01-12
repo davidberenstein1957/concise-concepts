@@ -82,10 +82,9 @@ def test_sense2vec():
     # -*- coding: utf-8 -*-
     import requests
     import spacy
-    from sense2vec import Sense2Vec
 
     import concise_concepts  # noqa: F401
-    from concise_concepts.examples.data import data, text, text_fuzzy
+    from concise_concepts.examples.data import data, text
 
     model_path = "s2v_old"
     # download .tar.gz file an URL
@@ -100,9 +99,6 @@ def test_sense2vec():
     tar = tarfile.open(filename, "r:gz")
     tar.extractall()
     tar.close()
-
-    import concise_concepts  # noqa: F401
-    from concise_concepts.examples.data import data, text
 
     nlp = spacy.load("en_core_web_md")
 
