@@ -64,8 +64,6 @@ class Conceptualizer:
         if ent_score:
             Span.set_extension("ent_score", default=None)
         self.ent_score = ent_score
-        self.orignal_words = [j for i in data.values() for j in i]
-        self.original_data = deepcopy(data)
         self.data = data
         self.name = name
         self.nlp = nlp
@@ -252,15 +250,13 @@ class Conceptualizer:
                 else:
                     raise Exception(msg)
         self.data = deepcopy(verified_data)
+        self.original_data = deepcopy(verified_data)
 
     def expand_concepts(self) -> None:
         """
         For each key in the data dictionary, find the topn most similar words to the key and the values in the data
         dictionary, and add those words to the values in the data dictionary
         """
-
-        self.original_data = deepcopy(self.data)
-
         for key in self.data:
             present_key = self._check_presence_vocab(key)
             if present_key:
