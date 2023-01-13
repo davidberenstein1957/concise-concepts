@@ -236,6 +236,8 @@ class Conceptualizer:
             self.kv = self.model.wv
         elif isinstance(self.model, KeyedVectors):
             self.kv = self.model
+        elif isinstance(self.model, Sense2Vec):
+            self.kv = self.model
         else:
             wordList = []
             vectorList = []
