@@ -189,7 +189,7 @@ print([(ent.text, ent.label_, ent._.ent_score) for ent in doc.ents])
 
 ## Custom Embedding Models
 
-- `model_path`: Use `sense2vec.Sense2Vec`, `gensim.Word2vec` `gensim.FastText`, or `gensim.KeyedVectors` model from the [pre-trained gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path. For using a `sense2vec.Sense2Vec` take a look [here](https://github.com/explosion/sense2vec#pretrained-vectors).
+- `model_path`: Use custom `sense2vec.Sense2Vec`, `gensim.Word2vec` `gensim.FastText`, or `gensim.KeyedVectors`, or a pretrained model from [gensim](https://radimrehurek.com/gensim/downloader.html) library or a custom model path. For using a `sense2vec.Sense2Vec` take a look [here](https://github.com/explosion/sense2vec#pretrained-vectors).
 - `model`: within [standalone usage](#standalone), it is possible to pass these models directly.
 
 ```python
