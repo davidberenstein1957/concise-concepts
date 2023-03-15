@@ -44,7 +44,7 @@ import concise_concepts
 data = {
     "fruit": ["apple", "pear", "orange"],
     "vegetable": ["broccoli", "spinach", "tomato"],
-    "meat": ["beef", "pork", "fish", "lamb"],
+    "meat": ['beef', 'pork', 'turkey', 'duck']
 }
 
 text = """
@@ -53,7 +53,7 @@ text = """
     Add the courgette, garlic, red peppers and oregano and cook for 2–3 minutes.
     Later, add some oranges and chickens. """
 
-nlp = spacy.load("en_core_web_lg", disable=["ner"])
+nlp = spacy.load("en_core_web_md", disable=["ner"])
 
 nlp.add_pipe(
     "concise_concepts",
@@ -65,6 +65,7 @@ nlp.add_pipe(
         "exclude_dep": ["DOBJ", "PCOMP"],
         "include_compound_words": False,
         "json_path": "./fruitful_patterns.json",
+        "topn": (100,500,300)
     },
 )
 doc = nlp(text)

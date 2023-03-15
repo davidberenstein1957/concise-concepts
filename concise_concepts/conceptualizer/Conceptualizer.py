@@ -71,7 +71,7 @@ class Conceptualizer:
         :param data: A dictionary of the words you want to match. The keys are the classes you want to match,
             and the values are the words you want to expand over.
         :type data: dict
-        :param topn(): The number of words to be returned for each class.
+        :param topn: The number of words to be returned for each class.
         :type topn: list
         :param model_path: The path to the model you want to use. If you don't have a model, you can use the spaCy one.
         :param word_delimiter: The delimiter used to separate words in model the dictionary, defaults to _ (optional)
