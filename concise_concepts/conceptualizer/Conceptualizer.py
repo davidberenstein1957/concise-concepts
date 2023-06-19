@@ -156,9 +156,10 @@ class Conceptualizer:
         # settle words around overlapping concepts
         for _ in range(5):
             self.expand_concepts()
-            self.infer_original_data()
+            self.infer_verified_data()
             self.resolve_overlapping_concepts()
-        self.infer_original_data()
+        self.infer_original_data()  # infer original after expansion
+        self.lemmatize_concepts()
         self.create_conceptual_patterns()
         self.set_concept_dict()
 
@@ -290,8 +291,10 @@ class Conceptualizer:
                     verified_data[key] = present_key
                 else:
                     raise Exception(msg)
+        # seperate original from verified to allow run() to infer the data in sep. steps
+        self.original_data = deepcopy(self.data)
+        self.verified_data = deepcopy(verified_data)
         self.data = deepcopy(verified_data)
-        self.original_data = deepcopy(verified_data)
 
     def expand_concepts(self) -> None:
         """
@@ -350,6 +353,22 @@ class Conceptualizer:
         """
         return dot(matutils.unitvec(self.kv[w1]), matutils.unitvec(self.kv[w2]))
 
+    def infer_verified_data(self) -> None:
+        """
+        It takes the original data and adds the new data to it, then removes the new data from the original data.
+        """
+        for key in self.data:
+            self.data[key] = list(set(self.data[key] + self.verified_data[key]))
+
+        for key_x in self.data:
+            for key_y in self.data:
+                if key_x != key_y:
+                    self.data[key_x] = [
+                        word
+                        for word in self.data[key_x]
+                        if word not in self.verified_data[key_y]
+                    ]
+
     def infer_original_data(self) -> None:
         """
         It takes the original data and adds the new data to it, then removes the new data from the original data.
@@ -361,7 +380,7 @@ class Conceptualizer:
             for key_y in self.data:
                 if key_x != key_y:
                     self.data[key_x] = [
-                        word
+                        str(word)
                         for word in self.data[key_x]
                         if word not in self.original_data[key_y]
                     ]
@@ -374,7 +393,7 @@ class Conceptualizer:
         """
         for key in self.data:
             self.data[key] = list(
-                set([doc[0].lemma_ for doc in self.nlp.pipe(self.data[key])])
+                set([str(doc[0].lemma_) for doc in self.nlp.pipe(self.data[key])])
             )
 
     def create_conceptual_patterns(self) -> None:
