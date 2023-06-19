@@ -39,8 +39,6 @@ Note that, [custom embedding models](#custom-embedding-models) are passed via `m
 import spacy
 from spacy import displacy
 
-import concise_concepts
-
 data = {
     "fruit": ["apple", "pear", "orange"],
     "vegetable": ["broccoli", "spinach", "tomato"],
@@ -169,7 +167,6 @@ nlp.add_pipe("concise_concepts", config={"data": data, "topn": topn})
 
 ```python
 import spacy
-import concise_concepts
 
 data = {
     "ORG": ["Google", "Apple", "Amazon"],
